@@ -26,11 +26,11 @@ int main(int argc, char *argv[]) {
         
         // TODO: Uncomment the code below to pass the first stage
         // 
-        // if (!file_contents.empty()) {
-        //     std::cerr << "Scanner not implemented" << std::endl;
-        //     return 1;
-        // }
-        // std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner
+        if (!file_contents.empty()) {
+            std::cerr << "Scanner not implemented" << std::endl;
+            return 1;
+        }
+        std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner
         
     } else {
         std::cerr << "Unknown command: " << command << std::endl;
