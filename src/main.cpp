@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+using namespace std;
 
 std::string read_file_contents(const std::string& filename);
 
@@ -25,14 +26,25 @@ int main(int argc, char *argv[]) {
         std::string file_contents = read_file_contents(argv[2]);
         
         // TODO: Uncomment the code below to pass the first stage
-        // 
-        if (!file_contents.empty()) {
-            std::cerr << "Scanner not implemented" << std::endl;
-            return 1;
+        for (int i = 0; i < file_contents.size(); ++i) {
+            char current_char = file_contents[i];
+            // Placeholder logic for tokenization
+            // Replace this with actual tokenization logic
+            if (std::isspace(current_char)) {
+                continue;
+            } else {
+                if(current_char == '(') {
+                    std::cout << "LEFT_PAREN ( null" << std::endl;
+                } else if(current_char == ')') {
+                    cout << "RIGHT_PAREN ) null" <<endl;
+                } else {
+                    std::cout << "UNKNOWN " << current_char << std::endl;
+                }
+            }
         }
-        std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner
-        
-    } else {
+        std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner 
+    } 
+    else {
         std::cerr << "Unknown command: " << command << std::endl;
         return 1;
     }
