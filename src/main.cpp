@@ -37,8 +37,15 @@ int main(int argc, char *argv[]) {
                     std::cout << "LEFT_PAREN ( null" << std::endl;
                 } else if(current_char == ')') {
                     cout << "RIGHT_PAREN ) null" <<endl;
-                } else {
-                    std::cout << "UNKNOWN " << current_char << std::endl;
+                } 
+                else if(current_char=='{') {
+                    cout << "LEFT_BRACE { null" <<endl;
+                } 
+                else if(current_char=='}') {
+                    cout << "RIGHT_BRACE } null" <<endl;
+                } 
+                else if(current_char==';') {
+                    cout << "SEMICOLON ; null" <<endl;
                 }
             }
         }
