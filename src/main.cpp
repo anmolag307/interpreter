@@ -71,6 +71,23 @@ int main(int argc, char *argv[]) {
                 }
                 cout << "NUMBER " << number << " null" <<endl;
             }
+            else if(cur=='"'){
+                std::string str;
+                i++;
+                while(i<file_contents.size() && file_contents[i]!='"') {
+                    if(file_contents[i]=='\n'){
+                        cerr << "[line " << line << "] Error: Unterminated string." << std::endl; ret_val = 65; break;
+                    }
+                    str += file_contents[i];
+                    i++;
+                }
+                if(i>=file_contents.size()){
+                    cerr << "[line " << line << "] Error: Unterminated string." << std::endl; ret_val = 65;
+                }
+                else{
+                    cout << "STRING " << str << " null" <<endl;
+                }
+            }
             else {
                 if(cur == '(') {
                     std::cout << "LEFT_PAREN ( null" << std::endl;
