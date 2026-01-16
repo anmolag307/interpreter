@@ -22,44 +22,83 @@ int main(int argc, char *argv[]) {
 
     const std::string command = argv[1];
     int ret_val = 0;
+    int line=1;
     if (command == "tokenize") {
         std::string file_contents = read_file_contents(argv[2]);
         
         // TODO: Uncomment the code below to pass the first stage
         for (int i = 0; i < file_contents.size(); ++i) {
-            char current_char = file_contents[i];
+            char cur = file_contents[i];
             // Placeholder logic for tokenization
             // Replace this with actual tokenization logic
-            if (std::isspace(current_char)) {
+            if (cur=='\t' || cur==' ') {
                 continue;
-            } else {
-                if(current_char == '(') {
+            }
+            else if(cur=='\n') {
+                line++;
+                continue;
+            }
+            else if(isalpha(cur) || cur=='_') {
+                std::string identifier(1, cur);
+                while(i+1<file_contents.size() && (isalnum(file_contents[i+1]) || file_contents[i+1]=='_')) {
+                    identifier += file_contents[i+1];
+                    i++;
+                }
+                if(identifier=="var") {
+                    cout << "VAR var null" <<endl;
+                }
+                else if(identifier=="print") {
+                    cout << "PRINT print null" <<endl;
+                }
+                else if(identifier=="if") {
+                    cout << "IF if null" <<endl;
+                }
+                else if(identifier=="else") {
+                    cout << "ELSE else null" <<endl;
+                }
+                else if(identifier=="while") {
+                    cout << "WHILE while null" <<endl;
+                }
+                else {
+                    cout << "IDENTIFIER " << identifier << " null" <<endl;
+                }
+            }
+            else if(isdigit(cur)) {
+                std::string number(1, cur);
+                while(i+1<file_contents.size() && isdigit(file_contents[i+1])) {
+                    number += file_contents[i+1];
+                    i++;
+                }
+                cout << "NUMBER " << number << " null" <<endl;
+            }
+            else {
+                if(cur == '(') {
                     std::cout << "LEFT_PAREN ( null" << std::endl;
-                } else if(current_char == ')') {
+                } else if(cur == ')') {
                     cout << "RIGHT_PAREN ) null" <<endl;
                 } 
-                else if(current_char=='{') {
+                else if(cur=='{') {
                     cout << "LEFT_BRACE { null" <<endl;
                 } 
-                else if(current_char=='}') {
+                else if(cur=='}') {
                     cout << "RIGHT_BRACE } null" <<endl;
                 } 
-                else if(current_char==';') {
+                else if(cur==';') {
                     cout << "SEMICOLON ; null" <<endl;
                 }
-                else if(current_char==',') {
+                else if(cur==',') {
                     cout << "COMMA , null" <<endl;
                 }
-                else if(current_char=='+') {
+                else if(cur=='+') {
                     cout << "PLUS + null" <<endl;
                 }
-                else if(current_char=='-') {
+                else if(cur=='-') {
                     cout << "MINUS - null" <<endl;
                 }
-                else if(current_char=='*') {
+                else if(cur=='*') {
                     cout << "STAR * null" <<endl;
                 }
-                else if(current_char=='/') {
+                else if(cur=='/') {
                     if(i+1<file_contents.size() && file_contents[i+1]=='/'){
                         break;
                     }
@@ -67,10 +106,10 @@ int main(int argc, char *argv[]) {
                         cout << "SLASH / null" <<endl;
                     }
                 }
-                else if(current_char=='.') {
+                else if(cur=='.') {
                     cout << "DOT . null" <<endl;
                 }
-                else if(current_char=='='){
+                else if(cur=='='){
                     if(i+1<file_contents.size() && file_contents[i+1]=='='){
                         cout << "EQUAL_EQUAL == null" <<endl;
                         i++;
@@ -79,7 +118,7 @@ int main(int argc, char *argv[]) {
                         cout << "EQUAL = null" <<endl;
                     }
                 }
-                else if(current_char=='!'){
+                else if(cur=='!'){
                     if(i+1<file_contents.size() && file_contents[i+1]=='='){
                         cout << "BANG_EQUAL != null" <<endl;
                         i++;
@@ -88,7 +127,7 @@ int main(int argc, char *argv[]) {
                         cout << "BANG ! null" <<endl;
                     }
                 }
-                else if(current_char=='<'){
+                else if(cur=='<'){
                     if(i+1<file_contents.size() && file_contents[i+1]=='='){
                         cout << "LESS_EQUAL <= null" <<endl;
                         i++;
@@ -97,7 +136,7 @@ int main(int argc, char *argv[]) {
                         cout << "LESS < null" <<endl;
                     }
                 }
-                else if(current_char=='>'){
+                else if(cur=='>'){
                     if(i+1<file_contents.size() && file_contents[i+1]=='='){
                         cout << "GREATER_EQUAL >= null" <<endl;
                         i++;
@@ -107,7 +146,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 else {
-                    cerr << "[line 1] Error: Unexpected character: " << current_char << std::endl; ret_val = 65;
+                    cerr << "[line " << line << "] Error: Unexpected character: " << cur << std::endl; ret_val = 65;
                 }
             }
         }
