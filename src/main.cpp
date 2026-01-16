@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     }
 
     const std::string command = argv[1];
-
+    int ret_val = 0;
     if (command == "tokenize") {
         std::string file_contents = read_file_contents(argv[2]);
         
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
                     cout << "DOT . null" <<endl;
                 }
                 else {
-                    std::cout << "UNKNOWN " << current_char << " null" << std::endl;
+                    cerr << "[line 1] Error: Unexpected character: " << current_char << std::endl; ret_val = 65;
                 }
             }
         }
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    return 0;
+    return ret_val;
 }
 
 std::string read_file_contents(const std::string& filename) {
