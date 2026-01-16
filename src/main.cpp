@@ -100,7 +100,11 @@ int main(int argc, char *argv[]) {
                 }
                 else if(cur=='/') {
                     if(i+1<file_contents.size() && file_contents[i+1]=='/'){
-                        break;
+                        // Comment, skip to end of line
+                        while(i<file_contents.size() && file_contents[i]!='\n'){
+                            i++;
+                        }
+                        line++;
                     }
                     else{
                         cout << "SLASH / null" <<endl;
