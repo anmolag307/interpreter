@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
                     cerr << "[line " << line << "] Error: Unterminated string." << std::endl; ret_val = 65;
                 }
                 else{
-                    cout << 'STRING "' << str << '"' << str <<endl;
+                    cout << "STRING \"" << str << "\"" << str <<endl;
                 }
             }
             else {
