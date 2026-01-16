@@ -65,6 +65,15 @@ int main(int argc, char *argv[]) {
                 else if(current_char=='.') {
                     cout << "DOT . null" <<endl;
                 }
+                else if(current_char=='='){
+                    if(i+1<file_contents.size() && file_contents[i+1]=='='){
+                        cout << "EQUAL_EQUAL == null" <<endl;
+                        i++;
+                    }
+                    else{
+                        cout << "EQUAL = null" <<endl;
+                    }
+                }
                 else {
                     cerr << "[line 1] Error: Unexpected character: " << current_char << std::endl; ret_val = 65;
                 }
