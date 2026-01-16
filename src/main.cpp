@@ -47,6 +47,24 @@ int main(int argc, char *argv[]) {
                 else if(current_char==';') {
                     cout << "SEMICOLON ; null" <<endl;
                 }
+                else if(current_char==',') {
+                    cout << "COMMA , null" <<endl;
+                }
+                else if(current_char=='+') {
+                    cout << "PLUS + null" <<endl;
+                }
+                else if(current_char=='-') {
+                    cout << "MINUS - null" <<endl;
+                }
+                else if(current_char=='*') {
+                    cout << "STAR * null" <<endl;
+                }
+                else if(current_char=='/') {
+                    cout << "SLASH / null" <<endl;
+                }
+                else {
+                    std::cout << "UNKNOWN " << current_char << " null" << std::endl;
+                }
             }
         }
         std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner 
