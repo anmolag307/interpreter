@@ -62,6 +62,9 @@ int main(int argc, char *argv[]) {
                 else if(current_char=='/') {
                     cout << "SLASH / null" <<endl;
                 }
+                else if(current_char=='.') {
+                    cout << "DOT . null" <<endl;
+                }
                 else {
                     std::cout << "UNKNOWN " << current_char << " null" << std::endl;
                 }
