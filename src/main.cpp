@@ -60,7 +60,12 @@ int main(int argc, char *argv[]) {
                     cout << "STAR * null" <<endl;
                 }
                 else if(current_char=='/') {
-                    cout << "SLASH / null" <<endl;
+                    if(i+1<file_contents.size() && file_contents[i+1]=='/'){
+                        break;
+                    }
+                    else{
+                        cout << "SLASH / null" <<endl;
+                    }
                 }
                 else if(current_char=='.') {
                     cout << "DOT . null" <<endl;
