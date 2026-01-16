@@ -74,6 +74,33 @@ int main(int argc, char *argv[]) {
                         cout << "EQUAL = null" <<endl;
                     }
                 }
+                else if(current_char=='!'){
+                    if(i+1<file_contents.size() && file_contents[i+1]=='='){
+                        cout << "BANG_EQUAL != null" <<endl;
+                        i++;
+                    }
+                    else{
+                        cout << "BANG ! null" <<endl;
+                    }
+                }
+                else if(current_char=='<'){
+                    if(i+1<file_contents.size() && file_contents[i+1]=='='){
+                        cout << "LESS_EQUAL <= null" <<endl;
+                        i++;
+                    }
+                    else{
+                        cout << "LESS < null" <<endl;
+                    }
+                }
+                else if(current_char=='>'){
+                    if(i+1<file_contents.size() && file_contents[i+1]=='='){
+                        cout << "GREATER_EQUAL >= null" <<endl;
+                        i++;
+                    }
+                    else{
+                        cout << "GREATER > null" <<endl;
+                    }
+                }
                 else {
                     cerr << "[line 1] Error: Unexpected character: " << current_char << std::endl; ret_val = 65;
                 }
