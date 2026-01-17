@@ -76,6 +76,39 @@ int main(int argc, char *argv[]) {
                 else if(identifier=="while") {
                     cout << "WHILE while null" <<endl;
                 }
+                else if(identifier=="for") {
+                    cout << "FOR for null" <<endl;
+                }
+                else if(identifier=="true") {
+                    cout << "TRUE true true" <<endl;
+                }
+                else if(identifier=="false") {
+                    cout << "FALSE false false" <<endl;
+                }
+                else if(identifier=="class") {
+                    cout << "CLASS class null" <<endl;
+                }
+                else if(identifier=="fun") {
+                    cout << "FUN fun null" <<endl;
+                }
+                else if(identifier=="return") {
+                    cout << "RETURN return null" <<endl;
+                }
+                else if(identifier=="and") {
+                    cout << "AND and null" <<endl;
+                }
+                else if(identifier=="or") {
+                    cout << "OR or null" <<endl;
+                }
+                else if(identifier=="super") {
+                    cout << "SUPER super null" <<endl;
+                }
+                else if(identifier=="this") {
+                    cout << "THIS this null" <<endl;
+                }
+                else if(identifier=="nil") {
+                    cout << "NIL nil null" <<endl;
+                }
                 else {
                     cout << "IDENTIFIER " << identifier << " null" <<endl;
                 }
