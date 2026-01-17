@@ -80,10 +80,10 @@ int main(int argc, char *argv[]) {
                     cout << "FOR for null" <<endl;
                 }
                 else if(identifier=="true") {
-                    cout << "TRUE true true" <<endl;
+                    cout << "TRUE true null" <<endl;
                 }
                 else if(identifier=="false") {
-                    cout << "FALSE false false" <<endl;
+                    cout << "FALSE false null" <<endl;
                 }
                 else if(identifier=="class") {
                     cout << "CLASS class null" <<endl;
