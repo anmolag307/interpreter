@@ -7,6 +7,23 @@ using namespace std;
 
 std::string read_file_contents(const std::string& filename);
 
+string formatnum(string s){
+    if(s.find('.')!=string::npos){
+        // Remove trailing zeros
+        while(s.back()=='0'){
+            s.pop_back();
+        }
+        // If the last character is a dot, remove it
+        if(s.back()=='.'){
+            s+='0';
+        }
+    }
+    else{
+        s+=".0";
+    }
+    return s;
+}
+
 int main(int argc, char *argv[]) {
     // Disable output buffering
     std::cout << std::unitbuf;
@@ -65,11 +82,11 @@ int main(int argc, char *argv[]) {
             }
             else if(isdigit(cur)) {
                 std::string number(1, cur);
-                while(i+1<file_contents.size() && isdigit(file_contents[i+1])) {
-                    number += file_contents[i+1];
+                while(i+1<file_contents.size() && (isdigit(file_contents[i+1]) || file_contents[i+1]=='.')) {
+                    number+=file_contents[i+1];
                     i++;
                 }
-                cout << "NUMBER " << number << " null" <<endl;
+                cout << "NUMBER " << number << " " << formatnum(number) <<endl;
             }
             else if(cur=='"'){
                 std::string str;
