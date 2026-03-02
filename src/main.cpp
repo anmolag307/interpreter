@@ -226,15 +226,15 @@ int main(int argc, char *argv[]) {
         }
         for(int i=0; i<file_contents.size(); i++){
             if(i+3<file_contents.size() && file_contents.substr(i,4)=="true"){
-                cout << "TRUE" <<endl;
+                cout << "true" <<endl;
                 i+=3;
             }
             else if(i+4<file_contents.size() && file_contents.substr(i,5)=="false"){
-                cout << "FALSE" <<endl;
+                cout << "false" <<endl;
                 i+=4;
             }
             else if(i+2<file_contents.size() && file_contents.substr(i,3)=="nil"){
-                cout << "NIL" <<endl;
+                cout << "nil" <<endl;
                 i+=2;
             }
         }
