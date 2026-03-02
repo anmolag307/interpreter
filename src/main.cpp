@@ -241,6 +241,5 @@ std::string read_file_contents(const std::string& filename) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     file.close();
-
     return buffer.str();
 }
