@@ -40,14 +40,10 @@ int main(int argc, char *argv[]) {
     const std::string command = argv[1];
     int ret_val = 0;
     int line=1;
-    if (command == "tokenize") {
+    if(command == "tokenize"){
         std::string file_contents = read_file_contents(argv[2]);
-        
-        // TODO: Uncomment the code below to pass the first stage
         for (int i = 0; i < file_contents.size(); ++i) {
             char cur = file_contents[i];
-            // Placeholder logic for tokenization
-            // Replace this with actual tokenization logic
             if (cur=='\t' || cur==' ') {
                 continue;
             }
@@ -222,7 +218,27 @@ int main(int argc, char *argv[]) {
             }
         }
         std::cout << "EOF  null" << std::endl; // Placeholder, replace this line when implementing the scanner 
-    } 
+    }
+    else if(command == "parse"){
+        std::string file_contents = read_file_contents(argv[2]);
+        if(file_contents.empty()){
+            cerr << "Error: Empty file." << endl; return 1;
+        }
+        for(int i=0; i<file_contents.size(); i++){
+            if(i+3<file_contents.size() && file_contents.substr(i,4)=="true"){
+                cout << "TRUE" <<endl;
+                i+=3;
+            }
+            else if(i+4<file_contents.size() && file_contents.substr(i,5)=="false"){
+                cout << "FALSE" <<endl;
+                i+=4;
+            }
+            else if(i+2<file_contents.size() && file_contents.substr(i,3)=="nil"){
+                cout << "NIL" <<endl;
+                i+=2;
+            }
+        }
+    }
     else {
         std::cerr << "Unknown command: " << command << std::endl;
         return 1;
