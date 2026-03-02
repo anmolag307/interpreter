@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
 
 std::string read_file_contents(const std::string& filename) {
     std::ifstream file(filename);
-    if (!file.is_open()) {
+    if(!file.is_open()){
         std::cerr << "Error reading file: " << filename << std::endl;
         std::exit(1);
     }
