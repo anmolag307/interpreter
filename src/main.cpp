@@ -225,6 +225,7 @@ int main(int argc, char *argv[]) {
             cerr << "Error: Empty file." << endl; return 1;
         }
         for(int i=0; i<file_contents.size(); i++){
+            char cur = file_contents[i];
             if(i+3<file_contents.size() && file_contents.substr(i,4)=="true"){
                 cout << "true" <<endl;
                 i+=3;
@@ -236,6 +237,14 @@ int main(int argc, char *argv[]) {
             else if(i+2<file_contents.size() && file_contents.substr(i,3)=="nil"){
                 cout << "nil" <<endl;
                 i+=2;
+            }
+            else if(isdigit(cur)) {
+                std::string number(1, cur);
+                while(i+1<file_contents.size() && (isdigit(file_contents[i+1]) || file_contents[i+1]=='.')) {
+                    number+=file_contents[i+1];
+                    i++;
+                }
+                cout<<formatnum(number) <<endl;
             }
         }
     }
