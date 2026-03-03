@@ -11,7 +11,7 @@ public:
     std::vector<Token> scanTokens();
 
 private:
-    std::string source_;
+    std::string src;
     size_t start_ = 0;
     size_t current_ = 0;
     int line_ = 1;
