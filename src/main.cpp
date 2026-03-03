@@ -2,9 +2,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "Scanner.h"
-#include "Parser.h"
-#include "Utils.h"
+#include "../include/Scanner.h"
+#include "../include/Parser.h"
+#include "../include/Utils.h"
 
 int main(int argc, char *argv[]) {
     // Disable output buffering
