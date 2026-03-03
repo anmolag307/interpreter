@@ -48,20 +48,29 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
         }
         return "(group " + inner + ")";
     }
-
-    if(i+3 <= (int)source.size() && source.substr(i,4) == "true"){
+    else if(cur=='!'){
+        i++;
+        std::string operand = parseExpression(source, i);
+        return "(! " + operand + ")";
+    }
+    else if(cur=='-'){
+        i++;
+        std::string operand = parseExpression(source, i);
+        return "(- " + operand + ")";
+    }
+    else if(i+3 <= (int)source.size() && source.substr(i,4) == "true"){
         i += 4;
         return "true";
     }
-    if(i+4 <= (int)source.size() && source.substr(i,5) == "false"){
+    else if(i+4 <= (int)source.size() && source.substr(i,5) == "false"){
         i += 5;
         return "false";
     }
-    if(i+2 <= (int)source.size() && source.substr(i,3) == "nil"){
+    else if(i+2 <= (int)source.size() && source.substr(i,3) == "nil"){
         i += 3;
         return "nil";
     }
-    if(isdigit(cur)){
+    else if(isdigit(cur)){
         std::string number(1, cur);
         i++;
         while(i < (int)source.size() && (isdigit(source[i]) || source[i]=='.')){
@@ -70,7 +79,7 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
         }
         return formatnum(number);
     }
-    if(cur == '"'){
+    else if(cur == '"'){
         std::string str;
         i++;
         while(i<(int)source.size() && source[i] != '"'){
@@ -84,7 +93,7 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
         if(i < (int)source.size() && source[i] == '"') i++;
         return str;
     }
-    if(isalpha(cur) || cur=='_'){
+    else if(isalpha(cur) || cur=='_'){
         std::string id(1, cur);
         i++;
         while(i < (int)source.size() && (isalnum(source[i]) || source[i]=='_')){
