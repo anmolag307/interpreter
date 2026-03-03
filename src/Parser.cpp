@@ -73,7 +73,7 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
     if(cur == '"'){
         std::string str;
         i++;
-        while(i < (int)source.size() && source[i] != '"'){
+        while(i<(int)source.size() && source[i] != '"'){
             if(source[i] == '\n'){
                 std::cerr << "Error: Unterminated string." << std::endl;
                 break;

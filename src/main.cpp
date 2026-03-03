@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
     if(command == "tokenize"){
         Scanner scanner(file_contents);
         scanner.scanTokens();
+        ret_val = scanner.getErrorCode();
     }
     else if(command == "parse"){
         Parser parser{std::vector<Token>()};
