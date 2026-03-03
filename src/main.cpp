@@ -5,15 +5,13 @@
 #include <string>
 using namespace std;
 
-std::string read_file_contents(const std::string& filename);
+string read_file_contents(string& filename);
 
 string formatnum(string s){
     if(s.find('.')!=string::npos){
-        // Remove trailing zeros
         while(s.back()=='0'){
             s.pop_back();
         }
-        // If the last character is a dot, remove it
         if(s.back()=='.'){
             s+='0';
         }
@@ -136,7 +134,7 @@ int main(int argc, char *argv[]) {
             }
             else {
                 if(cur == '(') {
-                    std::cout << "LEFT_PAREN ( null" << std::endl;
+                    cout << "LEFT_PAREN ( null" <<endl;
                 } else if(cur == ')') {
                     cout << "RIGHT_PAREN ) null" <<endl;
                 } 
@@ -245,6 +243,23 @@ int main(int argc, char *argv[]) {
                     i++;
                 }
                 cout<<formatnum(number) <<endl;
+            }
+            else if(cur=='"'){
+                std::string str;
+                i++;
+                while(i<file_contents.size() && file_contents[i]!='"') {
+                    if(file_contents[i]=='\n'){
+                        cerr << "[line " << line << "] Error: Unterminated string." << std::endl; ret_val = 65; break;
+                    }
+                    str += file_contents[i];
+                    i++;
+                }
+                if(i>=file_contents.size()){
+                    cerr << "[line " << line << "] Error: Unterminated string." << std::endl; ret_val = 65;
+                }
+                else{
+                    cout << "STRING \"" << str << "\" " << str <<endl;
+                }
             }
         }
     }
