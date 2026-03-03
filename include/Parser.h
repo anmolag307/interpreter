@@ -14,6 +14,9 @@ public:
     void parseFromString(const std::string& source);
 
 private:
+    // helper to parse a single expression from a string, advancing index
+    std::string parseExpression(const std::string& source, int &i);
+
     const std::vector<Token>& tokens_;
     size_t current_ = 0;
 };
