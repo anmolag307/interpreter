@@ -187,6 +187,7 @@ std::vector<Token> Scanner::scanTokens() {
             }
             else {
                 std::cerr << "[line " << line << "] Error: Unexpected character: " << cur << std::endl;
+                error_code_ = 65;
             }
         }
     }
