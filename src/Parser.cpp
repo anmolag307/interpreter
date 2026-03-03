@@ -2,6 +2,7 @@
 #include "Utils.h"
 #include <iostream>
 #include <cctype>
+#include <functional>
 
 Parser::Parser(const std::vector<Token>& tokens) : tokens_(tokens) {}
 
@@ -43,10 +44,19 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
     }
 
     // parse primary expressions: number, string, identifier, or parenthesized expression
-    auto parsePrimary = [&](void)->std::string {
+    std::function<std::string()> parsePrimary;
+    parsePrimary = [&]() -> std::string {
         skipWhitespace();
         if(i >= (int)source.size()) return "";
         char cur = source[i];
+        // unary plus/minus
+        if((cur == '-' || cur == '+')){
+            char op = cur;
+            ++i;
+            std::string operand = parsePrimary();
+            std::string opStr(1, op);
+            return "(" + opStr + " " + operand + ")";
+        }
         if(cur == '(') {
             ++i; // consume '('
             std::string inner = parseExpression(source, i);
