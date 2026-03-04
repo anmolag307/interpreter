@@ -32,10 +32,45 @@ void Parser::parseFromString(const std::string& source) {
 
 // recursive descent for a single expression; advances index
 std::string Parser::parseExpression(const std::string& source, int &i) {
-    return parseAdditive(source, i);
+    return parseComparison(source, i);
 }
 
-// handle + and - (lowest precedence)
+// handle <, >, <=, >= (lowest precedence)
+std::string Parser::parseComparison(const std::string& source, int &i) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+    
+    std::string left = parseAdditive(source, i);
+    
+    while(true) {
+        skipWhitespace();
+        if(i >= (int)source.size()) break;
+        
+        // check for two-character operators first (<=, >=)
+        if(i+1 < (int)source.size()) {
+            std::string op = source.substr(i, 2);
+            if(op == "<=" || op == ">=") {
+                i += 2; // consume operator
+                std::string right = parseAdditive(source, i);
+                left = "(" + op + " " + left + " " + right + ")";
+                continue;
+            }
+        }
+        
+        // check for single-character operators
+        char op = source[i];
+        if(op == '<' || op == '>') {
+            ++i; // consume operator
+            std::string right = parseAdditive(source, i);
+            std::string opStr(1, op);
+            left = "(" + opStr + " " + left + " " + right + ")";
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+// handle + and - (higher precedence than comparison)
 std::string Parser::parseAdditive(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     

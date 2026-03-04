@@ -17,6 +17,7 @@ private:
     // helper to parse a single expression from a string, advancing index
     std::string parseExpression(const std::string& source, int &i);
     // precedence levels for operators
+    std::string parseComparison(const std::string& source, int &i);
     std::string parseAdditive(const std::string& source, int &i);
     std::string parseMultiplicative(const std::string& source, int &i);
     std::string parseUnary(const std::string& source, int &i);
