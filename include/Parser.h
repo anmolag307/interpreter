@@ -11,18 +11,18 @@ public:
     // convenience constructor from source
     explicit Parser(const std::string& source);
     void parse();
-    int parseFromString(const std::string& source);
+    void parseFromString(const std::string& source);
 
 private:
     // helper to parse a single expression from a string, advancing index
-    std::string parseExpression(const std::string& source, int &i, int &line);
+    std::string parseExpression(const std::string& source, int &i);
     // precedence levels for operators
-    std::string parseEquality(const std::string& source, int &i, int &line);
-    std::string parseComparison(const std::string& source, int &i, int &line);
-    std::string parseAdditive(const std::string& source, int &i, int &line);
-    std::string parseMultiplicative(const std::string& source, int &i, int &line);
-    std::string parseUnary(const std::string& source, int &i, int &line);
-    std::string parsePrimary(const std::string& source, int &i, int &line);
+    std::string parseEquality(const std::string& source, int &i);
+    std::string parseComparison(const std::string& source, int &i);
+    std::string parseAdditive(const std::string& source, int &i);
+    std::string parseMultiplicative(const std::string& source, int &i);
+    std::string parseUnary(const std::string& source, int &i);
+    std::string parsePrimary(const std::string& source, int &i);
 
     const std::vector<Token>& tokens_;
     size_t current_ = 0;
