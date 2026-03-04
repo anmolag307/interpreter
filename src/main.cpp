@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     }
     else if(command == "parse"){
         Parser parser{std::vector<Token>()};
-        parser.parseFromString(file_contents);
+        ret_val = parser.parseFromString(file_contents);
     }
     else{
         std::cerr << "Unknown command: " << command << std::endl;

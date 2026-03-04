@@ -11,7 +11,7 @@ public:
     // convenience constructor from source
     explicit Parser(const std::string& source);
     void parse();
-    void parseFromString(const std::string& source);
+    int parseFromString(const std::string& source);
 
 private:
     // helper to parse a single expression from a string, advancing index
@@ -26,6 +26,7 @@ private:
 
     const std::vector<Token>& tokens_;
     size_t current_ = 0;
+    int errorCode_ = 0;
 };
 
 #endif // CODECRAFTERS_PARSER_H

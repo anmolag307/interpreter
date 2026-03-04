@@ -11,13 +11,17 @@ Parser::Parser(const std::string& source) : tokens_(*(new std::vector<Token>()))
     (void)source; // we don't produce tokens here; this parser example prints parsed values
 }
 
-void Parser::parseFromString(const std::string& source) {
+int Parser::parseFromString(const std::string& source) {
+    errorCode_ = 0;
     if(source.empty()){
         std::cerr << "Error: Empty file." << std::endl;
-        return;
+        return errorCode_;
     }
     int i = 0;
     while(i < (int)source.size()){
+        if(errorCode_ != 0){
+            return errorCode_;
+        }
         // skip whitespace including newlines
         if(isspace(source[i])){
             i++;
@@ -33,10 +37,12 @@ void Parser::parseFromString(const std::string& source) {
     while(i < (int)source.size()){
         if(!isspace(source[i])){
             std::cerr << "Error: Incomplete expression." << std::endl;
-            return;
+            errorCode_ = 65;
+            return errorCode_;
         }
         i++;
     }
+    return errorCode_;
 }
 
 // recursive descent for a single expression; advances index
@@ -172,6 +178,7 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
             ++i;
         } else {
             std::cerr << "Error: unmatched '('" << std::endl;
+            errorCode_ = 65;
         }
         return "(group " + inner + ")";
     }
@@ -207,6 +214,7 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
         }
         if(!terminated){
             std::cerr << "Error: Unterminated string." << std::endl;
+            errorCode_ = 65;
             return "";
         }
         return str;
