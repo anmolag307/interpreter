@@ -11,35 +11,49 @@ Parser::Parser(const std::string& source) : tokens_(*(new std::vector<Token>()))
     (void)source; // we don't produce tokens here; this parser example prints parsed values
 }
 
-void Parser::parseFromString(const std::string& source) {
+int Parser::parseFromString(const std::string& source) {
     if(source.empty()){
-        std::cerr << "Error: Empty file." << std::endl;
-        return;
+        std::cerr << "[line 1] Error at 'end': Empty file." << std::endl;
+        return 0;
     }
     int i = 0;
+    int line = 1;
     while(i < (int)source.size()){
         // skip whitespace including newlines
         if(isspace(source[i])){
+            if(source[i] == '\n') line++;
             i++;
             continue;
         }
-        std::string result = parseExpression(source, i);
+        std::string result = parseExpression(source, i, line);
         if(!result.empty()){
             std::cout << result << std::endl;
         }
     }
+    
+    // Check for incomplete expression (leftover non-whitespace characters)
+    while(i < (int)source.size()){
+        if(!isspace(source[i])){
+            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+            return 65;
+        }
+        if(source[i] == '\n') line++;
+        i++;
+    }
+    
+    return 0;
 }
 
 // recursive descent for a single expression; advances index
-std::string Parser::parseExpression(const std::string& source, int &i) {
-    return parseEquality(source, i);
+std::string Parser::parseExpression(const std::string& source, int &i, int &line) {
+    return parseEquality(source, i, line);
 }
 
 // handle == and != (lowest precedence)
-std::string Parser::parseEquality(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parseEquality(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
-    std::string left = parseComparison(source, i);
+    std::string left = parseComparison(source, i, line);
     
     while(true) {
         skipWhitespace();
@@ -50,7 +64,7 @@ std::string Parser::parseEquality(const std::string& source, int &i) {
             std::string op = source.substr(i, 2);
             if(op == "==" || op == "!=") {
                 i += 2; // consume operator
-                std::string right = parseComparison(source, i);
+                std::string right = parseComparison(source, i, line);
                 left = "(" + op + " " + left + " " + right + ")";
                 continue;
             }
@@ -61,10 +75,10 @@ std::string Parser::parseEquality(const std::string& source, int &i) {
 }
 
 // handle <, >, <=, >= (higher precedence than equality)
-std::string Parser::parseComparison(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parseComparison(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
-    std::string left = parseAdditive(source, i);
+    std::string left = parseAdditive(source, i, line);
     
     while(true) {
         skipWhitespace();
@@ -75,7 +89,7 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
             std::string op = source.substr(i, 2);
             if(op == "<=" || op == ">=") {
                 i += 2; // consume operator
-                std::string right = parseAdditive(source, i);
+                std::string right = parseAdditive(source, i, line);
                 left = "(" + op + " " + left + " " + right + ")";
                 continue;
             }
@@ -85,7 +99,7 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
         char op = source[i];
         if(op == '<' || op == '>') {
             ++i; // consume operator
-            std::string right = parseAdditive(source, i);
+            std::string right = parseAdditive(source, i, line);
             std::string opStr(1, op);
             left = "(" + opStr + " " + left + " " + right + ")";
         } else {
@@ -96,10 +110,10 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
 }
 
 // handle + and - (higher precedence than comparison)
-std::string Parser::parseAdditive(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parseAdditive(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
-    std::string left = parseMultiplicative(source, i);
+    std::string left = parseMultiplicative(source, i, line);
     
     while(true) {
         skipWhitespace();
@@ -107,7 +121,7 @@ std::string Parser::parseAdditive(const std::string& source, int &i) {
         char op = source[i];
         if(op != '+' && op != '-') break;
         ++i; // consume operator
-        std::string right = parseMultiplicative(source, i);
+        std::string right = parseMultiplicative(source, i, line);
         std::string opStr(1, op);
         left = "(" + opStr + " " + left + " " + right + ")";
     }
@@ -115,10 +129,10 @@ std::string Parser::parseAdditive(const std::string& source, int &i) {
 }
 
 // handle * and / (higher precedence than +/-)
-std::string Parser::parseMultiplicative(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parseMultiplicative(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
-    std::string left = parseUnary(source, i);
+    std::string left = parseUnary(source, i, line);
     
     while(true) {
         skipWhitespace();
@@ -126,7 +140,7 @@ std::string Parser::parseMultiplicative(const std::string& source, int &i) {
         char op = source[i];
         if(op != '*' && op != '/') break;
         ++i; // consume operator
-        std::string right = parseUnary(source, i);
+        std::string right = parseUnary(source, i, line);
         std::string opStr(1, op);
         left = "(" + opStr + " " + left + " " + right + ")";
     }
@@ -134,22 +148,22 @@ std::string Parser::parseMultiplicative(const std::string& source, int &i) {
 }
 
 // handle unary operators: !, -, + (higher precedence than binary operators)
-std::string Parser::parseUnary(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parseUnary(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
     skipWhitespace();
     if(i < (int)source.size() && (source[i] == '!' || source[i] == '-' || source[i] == '+')) {
         char op = source[i++];
-        std::string operand = parseUnary(source, i);
+        std::string operand = parseUnary(source, i, line);
         std::string opStr(1, op);
         return "(" + opStr + " " + operand + ")";
     }
-    return parsePrimary(source, i);
+    return parsePrimary(source, i, line);
 }
 
 // handle primary expressions: number, string, identifier, or parenthesized expression
-std::string Parser::parsePrimary(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+std::string Parser::parsePrimary(const std::string& source, int &i, int &line) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) { if(source[i] == '\n') line++; ++i; } };
     
     skipWhitespace();
     if(i >= (int)source.size()) return "";
@@ -157,12 +171,13 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
     
     if(cur == '(') {
         ++i; // consume '('
-        std::string inner = parseExpression(source, i);
+        std::string inner = parseExpression(source, i, line);
         skipWhitespace();
         if(i < (int)source.size() && source[i] == ')') {
             ++i;
         } else {
-            std::cerr << "Error: unmatched '('" << std::endl;
+            std::cerr << "[line " << line << "] Error at '" << (i < (int)source.size() ? source[i] : "end") << "': Expect ')' after expression." << std::endl;
+            return "";
         }
         return "(group " + inner + ")";
     }
@@ -183,7 +198,10 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
     if(cur == '"'){
         std::string str; ++i;
         while(i < (int)source.size() && source[i] != '"'){
-            if(source[i] == '\n'){ std::cerr<<"Error: Unterminated string."<<std::endl; break; }
+            if(source[i] == '\n'){ 
+                std::cerr << "[line " << line << "] Error: Unterminated string." << std::endl; 
+                return ""; 
+            }
             str += source[i]; ++i;
         }
         if(i < (int)source.size() && source[i] == '"') ++i;
