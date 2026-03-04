@@ -190,12 +190,25 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
         return formatnum(number);
     }
     if(cur == '"'){
-        std::string str; ++i;
-        while(i < (int)source.size() && source[i] != '"'){
-            if(source[i] == '\n'){ std::cerr<<"Error: Unterminated string."<<std::endl; break; }
-            str += source[i]; ++i;
+        std::string str;
+        bool terminated = false;
+        ++i;
+        while(i < (int)source.size()){
+            if(source[i] == '"'){
+                terminated = true;
+                ++i;
+                break;
+            }
+            if(source[i] == '\n'){
+                break;
+            }
+            str += source[i];
+            ++i;
         }
-        if(i < (int)source.size() && source[i] == '"') ++i;
+        if(!terminated){
+            std::cerr << "Error: Unterminated string." << std::endl;
+            return "";
+        }
         return str;
     }
     if(isalpha((unsigned char)cur) || cur=='_'){
