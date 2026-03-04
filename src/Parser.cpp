@@ -32,10 +32,35 @@ void Parser::parseFromString(const std::string& source) {
 
 // recursive descent for a single expression; advances index
 std::string Parser::parseExpression(const std::string& source, int &i) {
-    return parseComparison(source, i);
+    return parseEquality(source, i);
 }
 
-// handle <, >, <=, >= (lowest precedence)
+// handle == and != (lowest precedence)
+std::string Parser::parseEquality(const std::string& source, int &i) {
+    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+    
+    std::string left = parseComparison(source, i);
+    
+    while(true) {
+        skipWhitespace();
+        if(i >= (int)source.size()) break;
+        
+        // check for two-character operators (==, !=)
+        if(i+1 < (int)source.size()) {
+            std::string op = source.substr(i, 2);
+            if(op == "==" || op == "!=") {
+                i += 2; // consume operator
+                std::string right = parseComparison(source, i);
+                left = "(" + op + " " + left + " " + right + ")";
+                continue;
+            }
+        }
+        break;
+    }
+    return left;
+}
+
+// handle <, >, <=, >= (higher precedence than equality)
 std::string Parser::parseComparison(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
