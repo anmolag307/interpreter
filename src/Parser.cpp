@@ -181,6 +181,7 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
         } else {
             std::cerr << "Error: unmatched '('" << std::endl;
             errorCode_ = 65;
+            return "";
         }
         return "(group " + inner + ")";
     }
