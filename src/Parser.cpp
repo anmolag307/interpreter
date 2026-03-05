@@ -155,7 +155,7 @@ std::string Parser::parseUnary(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
     skipWhitespace();
-    if(i < (int)source.size() && (source[i] == '!' || source[i] == '-' || source[i] == '+')) {
+    if(i < (int)source.size() && (source[i] == '!' || source[i] == '-')) {
         char op = source[i++];
         std::string operand = parseUnary(source, i);
         std::string opStr(1, op);
