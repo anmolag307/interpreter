@@ -11,6 +11,16 @@ Parser::Parser(const std::string& source) : tokens_(*(new std::vector<Token>()))
     (void)source; // we don't produce tokens here; this parser example prints parsed values
 }
 
+int Parser::lineNumberAt(const std::string& source, int index) const {
+    int line = 1;
+    for(int j = 0; j < index && j < (int)source.size(); ++j) {
+        if(source[j] == '\n') {
+            ++line;
+        }
+    }
+    return line;
+}
+
 int Parser::parseFromString(const std::string& source) {
     errorCode_ = 0;
     if(source.empty()){
@@ -57,6 +67,17 @@ std::string Parser::parseEquality(const std::string& source, int &i) {
     };
     
     std::string left = parseComparison(source, i);
+
+    skipWhitespace();
+    if(left.empty() && errorCode_ == 0 && i + 1 < (int)source.size()) {
+        std::string op = source.substr(i, 2);
+        if(op == "==" || op == "!=") {
+            int line = lineNumberAt(source, i);
+            std::cerr << "[line " << line << "] Error at '" << op << "': Expect expression." << std::endl;
+            errorCode_ = 65;
+            return "";
+        }
+    }
     
     while(true) {
         skipWhitespace();
@@ -68,6 +89,18 @@ std::string Parser::parseEquality(const std::string& source, int &i) {
             if(op == "==" || op == "!=") {
                 i += 2; // consume operator
                 std::string right = parseComparison(source, i);
+                if(right.empty()) {
+                    if(errorCode_ == 0) {
+                        int line = lineNumberAt(source, i);
+                        if(i < (int)source.size()) {
+                            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+                        } else {
+                            std::cerr << "[line " << line << "] Error at 'end': Expect expression." << std::endl;
+                        }
+                        errorCode_ = 65;
+                    }
+                    return "";
+                }
                 left = "(" + op + " " + left + " " + right + ")";
                 continue;
             }
@@ -82,6 +115,25 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
     std::string left = parseAdditive(source, i);
+
+    skipWhitespace();
+    if(left.empty() && errorCode_ == 0 && i < (int)source.size()) {
+        if(i + 1 < (int)source.size()) {
+            std::string op2 = source.substr(i, 2);
+            if(op2 == "<=" || op2 == ">=") {
+                int line = lineNumberAt(source, i);
+                std::cerr << "[line " << line << "] Error at '" << op2 << "': Expect expression." << std::endl;
+                errorCode_ = 65;
+                return "";
+            }
+        }
+        if(source[i] == '<' || source[i] == '>') {
+            int line = lineNumberAt(source, i);
+            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+            errorCode_ = 65;
+            return "";
+        }
+    }
     
     while(true) {
         skipWhitespace();
@@ -93,6 +145,18 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
             if(op == "<=" || op == ">=") {
                 i += 2; // consume operator
                 std::string right = parseAdditive(source, i);
+                if(right.empty()) {
+                    if(errorCode_ == 0) {
+                        int line = lineNumberAt(source, i);
+                        if(i < (int)source.size()) {
+                            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+                        } else {
+                            std::cerr << "[line " << line << "] Error at 'end': Expect expression." << std::endl;
+                        }
+                        errorCode_ = 65;
+                    }
+                    return "";
+                }
                 left = "(" + op + " " + left + " " + right + ")";
                 continue;
             }
@@ -103,6 +167,18 @@ std::string Parser::parseComparison(const std::string& source, int &i) {
         if(op == '<' || op == '>') {
             ++i; // consume operator
             std::string right = parseAdditive(source, i);
+            if(right.empty()) {
+                if(errorCode_ == 0) {
+                    int line = lineNumberAt(source, i);
+                    if(i < (int)source.size()) {
+                        std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+                    } else {
+                        std::cerr << "[line " << line << "] Error at 'end': Expect expression." << std::endl;
+                    }
+                    errorCode_ = 65;
+                }
+                return "";
+            }
             std::string opStr(1, op);
             left = "(" + opStr + " " + left + " " + right + ")";
         } else {
@@ -117,6 +193,14 @@ std::string Parser::parseAdditive(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
     std::string left = parseMultiplicative(source, i);
+
+    skipWhitespace();
+    if(left.empty() && errorCode_ == 0 && i < (int)source.size() && (source[i] == '+' || source[i] == '-')) {
+        int line = lineNumberAt(source, i);
+        std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+        errorCode_ = 65;
+        return "";
+    }
     
     while(true) {
         skipWhitespace();
@@ -125,6 +209,18 @@ std::string Parser::parseAdditive(const std::string& source, int &i) {
         if(op != '+' && op != '-') break;
         ++i; // consume operator
         std::string right = parseMultiplicative(source, i);
+        if(right.empty()) {
+            if(errorCode_ == 0) {
+                int line = lineNumberAt(source, i);
+                if(i < (int)source.size()) {
+                    std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+                } else {
+                    std::cerr << "[line " << line << "] Error at 'end': Expect expression." << std::endl;
+                }
+                errorCode_ = 65;
+            }
+            return "";
+        }
         std::string opStr(1, op);
         left = "(" + opStr + " " + left + " " + right + ")";
     }
@@ -136,6 +232,14 @@ std::string Parser::parseMultiplicative(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
     std::string left = parseUnary(source, i);
+
+    skipWhitespace();
+    if(left.empty() && errorCode_ == 0 && i < (int)source.size() && (source[i] == '*' || source[i] == '/')) {
+        int line = lineNumberAt(source, i);
+        std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+        errorCode_ = 65;
+        return "";
+    }
     
     while(true) {
         skipWhitespace();
@@ -144,6 +248,18 @@ std::string Parser::parseMultiplicative(const std::string& source, int &i) {
         if(op != '*' && op != '/') break;
         ++i; // consume operator
         std::string right = parseUnary(source, i);
+        if(right.empty()) {
+            if(errorCode_ == 0) {
+                int line = lineNumberAt(source, i);
+                if(i < (int)source.size()) {
+                    std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
+                } else {
+                    std::cerr << "[line " << line << "] Error at 'end': Expect expression." << std::endl;
+                }
+                errorCode_ = 65;
+            }
+            return "";
+        }
         std::string opStr(1, op);
         left = "(" + opStr + " " + left + " " + right + ")";
     }
@@ -227,6 +343,10 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
         while(i < (int)source.size() && (isalnum((unsigned char)source[i]) || source[i]=='_')){ id += source[i]; ++i; }
         return id;
     }
-    // unknown
-    ++i; return std::string();
+    // unknown token at expression position
+    int line = lineNumberAt(source, i);
+    std::cerr << "[line " << line << "] Error at '" << cur << "': Expect expression." << std::endl;
+    errorCode_ = 65;
+    ++i;
+    return std::string();
 }

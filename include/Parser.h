@@ -23,6 +23,7 @@ private:
     std::string parseMultiplicative(const std::string& source, int &i);
     std::string parseUnary(const std::string& source, int &i);
     std::string parsePrimary(const std::string& source, int &i);
+    int lineNumberAt(const std::string& source, int index) const;
 
     const std::vector<Token>& tokens_;
     size_t current_ = 0;
