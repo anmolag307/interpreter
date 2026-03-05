@@ -52,7 +52,9 @@ std::string Parser::parseExpression(const std::string& source, int &i) {
 
 // handle == and != (lowest precedence)
 std::string Parser::parseEquality(const std::string& source, int &i) {
-    auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
+    auto skipWhitespace = [&](void){ 
+        while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; 
+    };
     
     std::string left = parseComparison(source, i);
     
