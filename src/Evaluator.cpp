@@ -95,7 +95,9 @@ Evaluator::Value Evaluator::parseComparison(const std::string& source, int& i) {
         Value right = parseAdditive(source, i);
         if (hasError_) return Value{};
 
-        if (!std::holds_alternative<double>(left) || !std::holds_alternative<double>(right)) {
+        double l = 0.0;
+        double r = 0.0;
+        if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
             hasError_ = true;
@@ -103,8 +105,6 @@ Evaluator::Value Evaluator::parseComparison(const std::string& source, int& i) {
             return Value{};
         }
 
-        double l = std::get<double>(left);
-        double r = std::get<double>(right);
         if (op == "<") left = Value(l < r);
         else if (op == ">") left = Value(l > r);
         else if (op == "<=") left = Value(l <= r);
@@ -135,8 +135,10 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
         if (hasError_) return Value{};
 
         if (op == '+') {
-            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
-                left = Value(std::get<double>(left) + std::get<double>(right));
+            double l = 0.0;
+            double r = 0.0;
+            if (tryGetNumber(left, l) && tryGetNumber(right, r)) {
+                left = Value(l + r);
             } else if (std::holds_alternative<std::string>(left) && std::holds_alternative<std::string>(right)) {
                 left = Value(std::get<std::string>(left) + std::get<std::string>(right));
             } else {
@@ -147,14 +149,16 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
                 return Value{};
             }
         } else {
-            if (!std::holds_alternative<double>(left) || !std::holds_alternative<double>(right)) {
+            double l = 0.0;
+            double r = 0.0;
+            if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
                 int line = lineNumberAt(source, i);
                 std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
                 hasError_ = true;
                 errorCode_ = 70;
                 return Value{};
             }
-            left = Value(std::get<double>(left) - std::get<double>(right));
+            left = Value(l - r);
         }
     }
 
@@ -181,7 +185,9 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
         Value right = parseUnary(source, i);
         if (hasError_) return Value{};
 
-        if (!std::holds_alternative<double>(left) || !std::holds_alternative<double>(right)) {
+        double l = 0.0;
+        double r = 0.0;
+        if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
             hasError_ = true;
@@ -189,8 +195,6 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
             return Value{};
         }
 
-        double l = std::get<double>(left);
-        double r = std::get<double>(right);
         if (op == '*') {
             left = Value(l * r);
         } else {
@@ -218,14 +222,15 @@ Evaluator::Value Evaluator::parseUnary(const std::string& source, int& i) {
             return Value(!isTruthy(right));
         }
 
-        if (!std::holds_alternative<double>(right)) {
+        double r = 0.0;
+        if (!tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operand must be a number." << std::endl;
             hasError_ = true;
             errorCode_ = 65;
             return Value{};
         }
-        return Value(-std::get<double>(right));
+        return Value(-r);
     }
 
     return parsePrimary(source, i);
@@ -281,7 +286,7 @@ Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
             number += source[i];
             ++i;
         }
-        return Value(std::stod(number));
+        return Value(NumberLiteral{number});
     }
 
     if (source[i] == '"') {
@@ -323,33 +328,62 @@ bool Evaluator::isTruthy(const Value& value) const {
 }
 
 bool Evaluator::isEqual(const Value& left, const Value& right) const {
-    if (left.index() != right.index()) return false;
+    double l = 0.0;
+    double r = 0.0;
+    if (tryGetNumber(left, l) && tryGetNumber(right, r)) {
+        return l == r;
+    }
 
+    if (left.index() != right.index()) return false;
     if (std::holds_alternative<std::monostate>(left)) return true;
-    if (std::holds_alternative<double>(left)) return std::get<double>(left) == std::get<double>(right);
     if (std::holds_alternative<bool>(left)) return std::get<bool>(left) == std::get<bool>(right);
-    return std::get<std::string>(left) == std::get<std::string>(right);
+    if (std::holds_alternative<std::string>(left)) return std::get<std::string>(left) == std::get<std::string>(right);
+    return false;
 }
 
 std::string Evaluator::stringify(const Value& value) const {
     if (std::holds_alternative<std::monostate>(value)) return "nil";
     if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
+    if (std::holds_alternative<NumberLiteral>(value)) {
+        return normalizeNumericText(std::get<NumberLiteral>(value).text);
+    }
     if (std::holds_alternative<double>(value)) {
         std::ostringstream out;
         out.precision(std::numeric_limits<double>::max_digits10);
         out << std::get<double>(value);
-        std::string s = out.str();
-        if (s.find('.') != std::string::npos) {
-            while (!s.empty() && s.back() == '0') {
-                s.pop_back();
-            }
-            if (!s.empty() && s.back() == '.') {
-                s.pop_back();
-            }
-        }
-        return s;
+        return normalizeNumericText(out.str());
     }
     return std::get<std::string>(value);
+}
+
+bool Evaluator::tryGetNumber(const Value& value, double& out) const {
+    if (std::holds_alternative<double>(value)) {
+        out = std::get<double>(value);
+        return true;
+    }
+    if (std::holds_alternative<NumberLiteral>(value)) {
+        const std::string& text = std::get<NumberLiteral>(value).text;
+        try {
+            out = std::stod(text);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+    return false;
+}
+
+std::string Evaluator::normalizeNumericText(const std::string& text) const {
+    std::string s = text;
+    if (s.find('.') != std::string::npos) {
+        while (!s.empty() && s.back() == '0') {
+            s.pop_back();
+        }
+        if (!s.empty() && s.back() == '.') {
+            s.pop_back();
+        }
+    }
+    return s;
 }
 
 int Evaluator::lineNumberAt(const std::string& source, int index) const {
