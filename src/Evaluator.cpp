@@ -2,6 +2,8 @@
 #include "Utils.h"
 #include <cctype>
 #include <iostream>
+#include <limits>
+#include <sstream>
 
 int Evaluator::evaluateFromString(const std::string& source) {
     hasError_ = false;
@@ -220,7 +222,7 @@ Evaluator::Value Evaluator::parseUnary(const std::string& source, int& i) {
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operand must be a number." << std::endl;
             hasError_ = true;
-            errorCode_ = 70;
+            errorCode_ = 65;
             return Value{};
         }
         return Value(-std::get<double>(right));
@@ -333,7 +335,19 @@ std::string Evaluator::stringify(const Value& value) const {
     if (std::holds_alternative<std::monostate>(value)) return "nil";
     if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
     if (std::holds_alternative<double>(value)) {
-        return formatnum(std::to_string(std::get<double>(value)));
+        std::ostringstream out;
+        out.precision(std::numeric_limits<double>::max_digits10);
+        out << std::get<double>(value);
+        std::string s = out.str();
+        if (s.find('.') != std::string::npos) {
+            while (!s.empty() && s.back() == '0') {
+                s.pop_back();
+            }
+            if (!s.empty() && s.back() == '.') {
+                s.pop_back();
+            }
+        }
+        return s;
     }
     return std::get<std::string>(value);
 }
