@@ -4,6 +4,7 @@
 #include <vector>
 #include "../include/Scanner.h"
 #include "../include/Parser.h"
+#include "../include/Evaluator.h"
 #include "../include/Utils.h"
 
 int main(int argc, char *argv[]) {
@@ -14,7 +15,7 @@ int main(int argc, char *argv[]) {
     std::cerr << "Logs from your program will appear here!" << std::endl;
 
     if (argc < 3) {
-        std::cerr << "Usage: ./your_program tokenize|parse <filename>" << std::endl;
+        std::cerr << "Usage: ./your_program tokenize|parse|evaluate <filename>" << std::endl;
         return 1;
     }
 
@@ -31,6 +32,10 @@ int main(int argc, char *argv[]) {
     else if(command == "parse"){
         Parser parser{std::vector<Token>()};
         ret_val = parser.parseFromString(file_contents);
+    }
+    else if(command == "evaluate"){
+        Evaluator evaluator;
+        ret_val = evaluator.evaluateFromString(file_contents);
     }
     else{
         std::cerr << "Unknown command: " << command << std::endl;
