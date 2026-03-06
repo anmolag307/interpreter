@@ -25,51 +25,79 @@ std::string trim(const std::string& s) {
 }
 
 int Runner::runFromString(const std::string& source) {
-    int statementLine = 1;
-    int line = 1;
-    int statementStart = 0;
-    bool inString = false;
+    std::string src = source;
+    if (src.size() >= 3 &&
+        (unsigned char)src[0] == 0xEF &&
+        (unsigned char)src[1] == 0xBB &&
+        (unsigned char)src[2] == 0xBF) {
+        src.erase(0, 3);
+    }
 
-    for (int i = 0; i < (int)source.size(); ++i) {
-        char c = source[i];
-        if (c == '\n') {
-            ++line;
+    int line = 1;
+    int statementLine = 1;
+    bool inString = false;
+    bool inComment = false;
+    std::string current;
+
+    auto processStatement = [&](const std::string& raw, int stmtLine) -> int {
+        std::string statement = trim(raw);
+        if (statement.empty()) {
+            return 0;
+        }
+
+        if (statement.rfind("print", 0) != 0 ||
+            (statement.size() > 5 && !std::isspace((unsigned char)statement[5]))) {
+            std::cerr << "[line " << stmtLine << "] Error: Expect 'print' statement." << std::endl;
+            return 65;
+        }
+
+        std::string expression = trim(statement.substr(5));
+        Evaluator evaluator;
+        return evaluator.evaluateFromString(expression);
+    };
+
+    for (int i = 0; i < (int)src.size(); ++i) {
+        char c = src[i];
+
+        if (inComment) {
+            if (c == '\n') {
+                inComment = false;
+                ++line;
+            }
+            continue;
+        }
+
+        if (!inString && c == '/' && i + 1 < (int)src.size() && src[i + 1] == '/') {
+            inComment = true;
+            ++i;
+            continue;
         }
 
         if (c == '"') {
             inString = !inString;
         }
 
-        if (inString) {
-            continue;
-        }
-
-        if (c != ';') {
-            continue;
-        }
-
-        std::string statement = trim(source.substr(statementStart, i - statementStart));
-
-        if (!statement.empty()) {
-            if (statement.rfind("print", 0) != 0 ||
-                (statement.size() > 5 && !std::isspace((unsigned char)statement[5]))) {
-                std::cerr << "[line " << statementLine << "] Error: Expect 'print' statement." << std::endl;
-                return 65;
-            }
-
-            std::string expression = trim(statement.substr(5));
-            Evaluator evaluator;
-            int code = evaluator.evaluateFromString(expression);
+        if (!inString && c == ';') {
+            int code = processStatement(current, statementLine);
             if (code != 0) {
                 return code;
             }
+            current.clear();
+            statementLine = line;
+            continue;
         }
 
-        statementStart = i + 1;
-        statementLine = line;
+        current += c;
+
+        if (c == '\n') {
+            ++line;
+            if (trim(current).empty()) {
+                statementLine = line;
+            }
+        }
     }
 
-    std::string trailing = trim(source.substr(statementStart));
+    std::string trailing = trim(current);
     if (!trailing.empty()) {
         std::cerr << "[line " << statementLine << "] Error at 'end': Expect ';' after statement." << std::endl;
         return 65;
