@@ -1,7 +1,6 @@
 #include "../include/Evaluator.h"
 #include "Utils.h"
 #include <cctype>
-#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -180,7 +179,7 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
         skipWhitespace();
         if (i >= (int)source.size()) break;
         char op = source[i];
-        if (op != '*' && op != '/' && op != '%') break;
+        if (op != '*' && op != '/') break;
 
         ++i;
         Value right = parseUnary(source, i);
@@ -198,10 +197,8 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
 
         if (op == '*') {
             left = Value(l * r);
-        } else if (op == '/') {
-            left = Value(l / r);
         } else {
-            left = Value(std::fmod(l, r));
+            left = Value(l / r);
         }
     }
 

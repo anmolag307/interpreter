@@ -134,9 +134,6 @@ std::vector<Token> Scanner::scanTokens() {
             else if(cur=='*') {
                 std::cout << "STAR * null" <<std::endl;
             }
-            else if(cur=='%') {
-                std::cout << "PERCENT % null" <<std::endl;
-            }
             else if(cur=='/') {
                 if(i+1<(int)src.size() && src[i+1]=='/'){
                     // Comment, skip to end of line

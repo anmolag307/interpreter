@@ -227,14 +227,14 @@ std::string Parser::parseAdditive(const std::string& source, int &i) {
     return left;
 }
 
-// handle *, / and % (higher precedence than +/-)
+// handle * and / (higher precedence than +/-)
 std::string Parser::parseMultiplicative(const std::string& source, int &i) {
     auto skipWhitespace = [&](void){ while(i < (int)source.size() && isspace((unsigned char)source[i])) ++i; };
     
     std::string left = parseUnary(source, i);
 
     skipWhitespace();
-    if(left.empty() && errorCode_ == 0 && i < (int)source.size() && (source[i] == '*' || source[i] == '/' || source[i] == '%')) {
+    if(left.empty() && errorCode_ == 0 && i < (int)source.size() && (source[i] == '*' || source[i] == '/')) {
         int line = lineNumberAt(source, i);
         std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect expression." << std::endl;
         errorCode_ = 65;
@@ -245,7 +245,7 @@ std::string Parser::parseMultiplicative(const std::string& source, int &i) {
         skipWhitespace();
         if(i >= (int)source.size()) break;
         char op = source[i];
-        if(op != '*' && op != '/' && op != '%') break;
+        if(op != '*' && op != '/') break;
         ++i; // consume operator
         std::string right = parseUnary(source, i);
         if(right.empty()) {
