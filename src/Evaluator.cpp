@@ -99,7 +99,7 @@ Evaluator::Value Evaluator::parseComparison(const std::string& source, int& i) {
         double r = 0.0;
         if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
-            std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
+            std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
             errorCode_ = 70;
             return Value{};
@@ -143,7 +143,7 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
                 left = Value(std::get<std::string>(left) + std::get<std::string>(right));
             } else {
                 int line = lineNumberAt(source, i);
-                std::cerr << "[line " << line << "] Error: Operands must be two numbers or two strings." << std::endl;
+                std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
                 hasError_ = true;
                 errorCode_ = 70;
                 return Value{};
@@ -153,7 +153,7 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
             double r = 0.0;
             if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
                 int line = lineNumberAt(source, i);
-                std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
+                std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
                 hasError_ = true;
                 errorCode_ = 70;
                 return Value{};
@@ -189,7 +189,7 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
         double r = 0.0;
         if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
-            std::cerr << "[line " << line << "] Error: Operands must be numbers." << std::endl;
+            std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
             errorCode_ = 70;
             return Value{};
@@ -225,9 +225,9 @@ Evaluator::Value Evaluator::parseUnary(const std::string& source, int& i) {
         double r = 0.0;
         if (!tryGetNumber(right, r)) {
             int line = lineNumberAt(source, i);
-            std::cerr << "[line " << line << "] Error: Operand must be a number." << std::endl;
+            std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
-            errorCode_ = 65;
+            errorCode_ = 70;
             return Value{};
         }
         return Value(-r);
