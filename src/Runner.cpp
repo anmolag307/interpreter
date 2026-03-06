@@ -36,6 +36,7 @@ int Runner::runFromString(const std::string& source) {
     int line = 1;
     int statementLine = 1;
     bool inString = false;
+    int stringStartLine = 1;
     bool inComment = false;
     std::string current;
 
@@ -74,6 +75,9 @@ int Runner::runFromString(const std::string& source) {
         }
 
         if (c == '"') {
+            if (!inString) {
+                stringStartLine = line;
+            }
             inString = !inString;
         }
 
@@ -95,6 +99,11 @@ int Runner::runFromString(const std::string& source) {
                 statementLine = line;
             }
         }
+    }
+
+    if (inString) {
+        std::cerr << "[line " << stringStartLine << "] Error: Unterminated string." << std::endl;
+        return 65;
     }
 
     std::string trailing = trim(current);

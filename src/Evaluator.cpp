@@ -293,13 +293,6 @@ Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
         std::string str;
         ++i;
         while (i < (int)source.size() && source[i] != '"') {
-            if (source[i] == '\n') {
-                int line = lineNumberAt(source, i);
-                std::cerr << "[line " << line << "] Error: Unterminated string." << std::endl;
-                hasError_ = true;
-                errorCode_ = 65;
-                return Value{};
-            }
             str += source[i];
             ++i;
         }

@@ -325,9 +325,6 @@ std::string Parser::parsePrimary(const std::string& source, int &i) {
                 ++i;
                 break;
             }
-            if(source[i] == '\n'){
-                break;
-            }
             str += source[i];
             ++i;
         }

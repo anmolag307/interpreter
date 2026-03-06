@@ -89,18 +89,17 @@ std::vector<Token> Scanner::scanTokens() {
         }
         else if(cur=='"'){
             std::string str;
+            int stringStartLine = line;
             i++;
             while(i<(int)src.size() && src[i]!='"') {
                 if(src[i]=='\n'){
-                    std::cerr << "[line " << line << "] Error: Unterminated string." << std::endl;
-                    error_code_ = 65;
-                    break;
+                    line++;
                 }
                 str += src[i];
                 i++;
             }
             if(i>=(int)src.size()){
-                std::cerr << "[line " << line << "] Error: Unterminated string." << std::endl;
+                std::cerr << "[line " << stringStartLine << "] Error: Unterminated string." << std::endl;
                 error_code_ = 65;
             }
             else{
