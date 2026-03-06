@@ -1,8 +1,8 @@
 #include "../include/Evaluator.h"
 #include "Utils.h"
 #include <cctype>
+#include <iomanip>
 #include <iostream>
-#include <limits>
 #include <sstream>
 
 int Evaluator::evaluateFromString(const std::string& source) {
@@ -349,7 +349,8 @@ std::string Evaluator::stringify(const Value& value) const {
     }
     if (std::holds_alternative<double>(value)) {
         std::ostringstream out;
-        out.precision(std::numeric_limits<double>::max_digits10);
+        // Use a practical precision for display to avoid binary floating-point tails.
+        out << std::setprecision(15);
         out << std::get<double>(value);
         return normalizeNumericText(out.str());
     }
