@@ -5,7 +5,7 @@
 #include "../include/Scanner.h"
 #include "../include/Parser.h"
 #include "../include/Evaluator.h"
-#include "../include/Runner.h"
+#include "Runner.h"
 #include "../include/Utils.h"
 
 int main(int argc, char *argv[]) {
