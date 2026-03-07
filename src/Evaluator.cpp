@@ -5,7 +5,7 @@
 #include <iostream>
 #include <sstream>
 
-int Evaluator::evaluateFromString(const std::string& source) {
+int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     hasError_ = false;
     errorCode_ = 0;
 
@@ -28,7 +28,9 @@ int Evaluator::evaluateFromString(const std::string& source) {
         return errorCode_;
     }
 
-    std::cout << stringify(result) << std::endl;
+    if (printResult) {
+        std::cout << stringify(result) << std::endl;
+    }
     return 0;
 }
 

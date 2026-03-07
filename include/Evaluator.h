@@ -7,7 +7,7 @@
 class Evaluator {
 public:
     Evaluator() = default;
-    int evaluateFromString(const std::string& source);
+    int evaluateFromString(const std::string& source, bool printResult = true);
 
 private:
     struct NumberLiteral {

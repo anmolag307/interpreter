@@ -46,15 +46,21 @@ int Runner::runFromString(const std::string& source) {
             return 0;
         }
 
-        if (statement.rfind("print", 0) != 0 ||
-            (statement.size() > 5 && !std::isspace((unsigned char)statement[5]))) {
-            std::cerr << "[line " << stmtLine << "] Error: Expect 'print' statement." << std::endl;
+        bool isPrintStatement =
+            statement.rfind("print", 0) == 0 &&
+            (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
+
+        std::string expression = isPrintStatement
+            ? trim(statement.substr(5))
+            : statement;
+
+        if (expression.empty()) {
+            std::cerr << "[line " << stmtLine << "] Error at ';': Expect expression." << std::endl;
             return 65;
         }
 
-        std::string expression = trim(statement.substr(5));
         Evaluator evaluator;
-        return evaluator.evaluateFromString(expression);
+        return evaluator.evaluateFromString(expression, isPrintStatement);
     };
 
     for (int i = 0; i < (int)src.size(); ++i) {
