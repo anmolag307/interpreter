@@ -41,43 +41,12 @@ int Runner::runFromString(const std::string& source) {
     bool inComment = false;
     int blockDepth = 0;
     std::vector<int> blockStartLines;
-    std::string current;
-    Evaluator evaluator;
-
-    auto processStatement = [&](const std::string& raw, int stmtLine) -> int {
-        std::string statement = trim(raw);
-        if (statement.empty()) {
-            return 0;
-        }
-
-        bool isPrintStatement =
-            statement.rfind("print", 0) == 0 &&
-            (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
-
-        bool isVarDeclaration =
-            statement.rfind("var", 0) == 0 &&
-            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
-
-        if (isVarDeclaration) {
-            std::string declaration = trim(statement.substr(3));
-            if (declaration.empty()) {
-                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
-                return 65;
-            }
-            return evaluator.declareVariableFromString(declaration);
-        }
-
-        std::string expression = isPrintStatement
-            ? trim(statement.substr(5))
-            : statement;
-
-        if (expression.empty()) {
-            std::cerr << "[line " << stmtLine << "] Error at ';': Expect expression." << std::endl;
-            return 65;
-        }
-
-        return evaluator.evaluateFromString(expression, isPrintStatement);
+    struct PendingStatement {
+        std::string text;
+        int line;
     };
+    std::vector<PendingStatement> statements;
+    std::string current;
 
     for (int i = 0; i < (int)src.size(); ++i) {
         char c = src[i];
@@ -133,9 +102,9 @@ int Runner::runFromString(const std::string& source) {
         }
 
         if (!inString && c == ';') {
-            int code = processStatement(current, statementLine);
-            if (code != 0) {
-                return code;
+            std::string statement = trim(current);
+            if (!statement.empty()) {
+                statements.push_back({statement, statementLine});
             }
             current.clear();
             statementLine = line;
@@ -167,6 +136,48 @@ int Runner::runFromString(const std::string& source) {
     if (!trailing.empty()) {
         std::cerr << "[line " << statementLine << "] Error at 'end': Expect ';' after statement." << std::endl;
         return 65;
+    }
+
+    Evaluator evaluator;
+    for (const auto& pending : statements) {
+        const std::string& statement = pending.text;
+        int stmtLine = pending.line;
+
+        bool isPrintStatement =
+            statement.rfind("print", 0) == 0 &&
+            (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
+
+        bool isVarDeclaration =
+            statement.rfind("var", 0) == 0 &&
+            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
+
+        if (isVarDeclaration) {
+            std::string declaration = trim(statement.substr(3));
+            if (declaration.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
+                return 65;
+            }
+
+            int code = evaluator.declareVariableFromString(declaration);
+            if (code != 0) {
+                return code;
+            }
+            continue;
+        }
+
+        std::string expression = isPrintStatement
+            ? trim(statement.substr(5))
+            : statement;
+
+        if (expression.empty()) {
+            std::cerr << "[line " << stmtLine << "] Error at ';': Expect expression." << std::endl;
+            return 65;
+        }
+
+        int code = evaluator.evaluateFromString(expression, isPrintStatement);
+        if (code != 0) {
+            return code;
+        }
     }
 
     return 0;
