@@ -123,7 +123,7 @@ int Runner::runFromString(const std::string& source) {
 
             if (!trim(current).empty()) {
                 std::cerr << "[line " << line << "] Error at '}': Expect ';' after statement." << std::endl;
-                return 65;
+                return 65; 
             }
 
             --blockDepth;
