@@ -39,6 +39,7 @@ int Runner::runFromString(const std::string& source) {
     int stringStartLine = 1;
     bool inComment = false;
     std::string current;
+    Evaluator evaluator;
 
     auto processStatement = [&](const std::string& raw, int stmtLine) -> int {
         std::string statement = trim(raw);
@@ -50,6 +51,19 @@ int Runner::runFromString(const std::string& source) {
             statement.rfind("print", 0) == 0 &&
             (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
 
+        bool isVarDeclaration =
+            statement.rfind("var", 0) == 0 &&
+            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
+
+        if (isVarDeclaration) {
+            std::string declaration = trim(statement.substr(3));
+            if (declaration.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
+                return 65;
+            }
+            return evaluator.declareVariableFromString(declaration);
+        }
+
         std::string expression = isPrintStatement
             ? trim(statement.substr(5))
             : statement;
@@ -59,7 +73,6 @@ int Runner::runFromString(const std::string& source) {
             return 65;
         }
 
-        Evaluator evaluator;
         return evaluator.evaluateFromString(expression, isPrintStatement);
     };
 

@@ -5,6 +5,63 @@
 #include <iostream>
 #include <sstream>
 
+int Evaluator::declareVariableFromString(const std::string& source) {
+    hasError_ = false;
+    errorCode_ = 0;
+
+    int i = 0;
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    if (i >= (int)source.size() || !isIdentifierStart(source[i])) {
+        int line = lineNumberAt(source, i);
+        if (i < (int)source.size()) {
+            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect variable name." << std::endl;
+        } else {
+            std::cerr << "[line " << line << "] Error at 'end': Expect variable name." << std::endl;
+        }
+        return 65;
+    }
+
+    std::string name;
+    while (i < (int)source.size() && isIdentifierPart(source[i])) {
+        name += source[i];
+        ++i;
+    }
+
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    Value value = std::monostate{};
+    if (i < (int)source.size()) {
+        if (source[i] != '=') {
+            int line = lineNumberAt(source, i);
+            std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect '=' after variable name." << std::endl;
+            return 65;
+        }
+
+        ++i;
+        value = parseExpression(source, i);
+        if (hasError_) {
+            return errorCode_;
+        }
+
+        while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+            ++i;
+        }
+
+        if (i < (int)source.size()) {
+            reportExpectExpression(source, i);
+            return errorCode_;
+        }
+    }
+
+    globals_[name] = value;
+    return 0;
+}
+
 int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     hasError_ = false;
     errorCode_ = 0;
@@ -268,17 +325,36 @@ Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
         return Value{};
     }
 
-    if (i + 3 <= (int)source.size() && source.substr(i, 4) == "true") {
+    if (matchesKeyword(source, i, "true")) {
         i += 4;
         return Value(true);
     }
-    if (i + 4 <= (int)source.size() && source.substr(i, 5) == "false") {
+    if (matchesKeyword(source, i, "false")) {
         i += 5;
         return Value(false);
     }
-    if (i + 2 <= (int)source.size() && source.substr(i, 3) == "nil") {
+    if (matchesKeyword(source, i, "nil")) {
         i += 3;
         return Value(std::monostate{});
+    }
+
+    if (isIdentifierStart(source[i])) {
+        std::string name;
+        while (i < (int)source.size() && isIdentifierPart(source[i])) {
+            name += source[i];
+            ++i;
+        }
+
+        auto it = globals_.find(name);
+        if (it == globals_.end()) {
+            int line = lineNumberAt(source, i);
+            std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
+            hasError_ = true;
+            errorCode_ = 70;
+            return Value{};
+        }
+
+        return it->second;
     }
 
     if (isdigit((unsigned char)source[i])) {
@@ -401,4 +477,29 @@ void Evaluator::reportExpectExpression(const std::string& source, int index) {
     }
     hasError_ = true;
     errorCode_ = 65;
+}
+
+bool Evaluator::isIdentifierStart(char c) const {
+    return std::isalpha((unsigned char)c) || c == '_';
+}
+
+bool Evaluator::isIdentifierPart(char c) const {
+    return std::isalnum((unsigned char)c) || c == '_';
+}
+
+bool Evaluator::matchesKeyword(const std::string& source, int index, const std::string& keyword) const {
+    if (index + (int)keyword.size() > (int)source.size()) {
+        return false;
+    }
+
+    if (source.compare(index, keyword.size(), keyword) != 0) {
+        return false;
+    }
+
+    int end = index + (int)keyword.size();
+    if (end < (int)source.size() && isIdentifierPart(source[end])) {
+        return false;
+    }
+
+    return true;
 }
