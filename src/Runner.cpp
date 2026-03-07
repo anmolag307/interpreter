@@ -3,6 +3,7 @@
 #include <cctype>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 std::string trim(const std::string& s) {
@@ -38,6 +39,8 @@ int Runner::runFromString(const std::string& source) {
     bool inString = false;
     int stringStartLine = 1;
     bool inComment = false;
+    int blockDepth = 0;
+    std::vector<int> blockStartLines;
     std::string current;
     Evaluator evaluator;
 
@@ -100,6 +103,35 @@ int Runner::runFromString(const std::string& source) {
             inString = !inString;
         }
 
+        if (!inString && c == '{') {
+            if (!trim(current).empty()) {
+                std::cerr << "[line " << line << "] Error at '{': Expect ';' after statement." << std::endl;
+                return 65;
+            }
+
+            ++blockDepth;
+            blockStartLines.push_back(line);
+            statementLine = line;
+            continue;
+        }
+
+        if (!inString && c == '}') {
+            if (blockDepth == 0) {
+                std::cerr << "[line " << line << "] Error at '}': Unexpected '}'" << std::endl;
+                return 65;
+            }
+
+            if (!trim(current).empty()) {
+                std::cerr << "[line " << line << "] Error at '}': Expect ';' after statement." << std::endl;
+                return 65;
+            }
+
+            --blockDepth;
+            blockStartLines.pop_back();
+            statementLine = line;
+            continue;
+        }
+
         if (!inString && c == ';') {
             int code = processStatement(current, statementLine);
             if (code != 0) {
@@ -122,6 +154,12 @@ int Runner::runFromString(const std::string& source) {
 
     if (inString) {
         std::cerr << "[line " << stringStartLine << "] Error: Unterminated string." << std::endl;
+        return 65;
+    }
+
+    if (blockDepth > 0) {
+        int startLine = blockStartLines.empty() ? line : blockStartLines.back();
+        std::cerr << "[line " << startLine << "] Error at 'end': Expect '}' after block." << std::endl;
         return 65;
     }
 

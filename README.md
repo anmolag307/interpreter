@@ -48,3 +48,8 @@ Note: This section is for stages 2 and beyond.
    `src/main.cpp`.
 3. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
+
+# add modulo
+# remove redeclare
+# break var
+# break statemnts
