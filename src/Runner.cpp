@@ -80,6 +80,7 @@ int Runner::runFromString(const std::string& source) {
 
             ++blockDepth;
             blockStartLines.push_back(line);
+            statements.push_back({"{", line});
             statementLine = line;
             continue;
         }
@@ -97,6 +98,7 @@ int Runner::runFromString(const std::string& source) {
 
             --blockDepth;
             blockStartLines.pop_back();
+            statements.push_back({"}", line});
             statementLine = line;
             continue;
         }
@@ -142,6 +144,20 @@ int Runner::runFromString(const std::string& source) {
     for (const auto& pending : statements) {
         const std::string& statement = pending.text;
         int stmtLine = pending.line;
+
+        if (statement == "{") {
+            evaluator.beginScope();
+            continue;
+        }
+
+        if (statement == "}") {
+            int code = evaluator.endScope();
+            if (code != 0) {
+                std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
+                return code;
+            }
+            continue;
+        }
 
         bool isPrintStatement =
             statement.rfind("print", 0) == 0 &&

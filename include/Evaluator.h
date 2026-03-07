@@ -4,12 +4,15 @@
 #include <string>
 #include <map>
 #include <variant>
+#include <vector>
 
 class Evaluator {
 public:
     Evaluator() = default;
     int evaluateFromString(const std::string& source, bool printResult = true);
     int declareVariableFromString(const std::string& source);
+    void beginScope();
+    int endScope();
 
 private:
     struct NumberLiteral {
@@ -40,7 +43,7 @@ private:
 
     bool hasError_ = false;
     int errorCode_ = 0;
-    std::map<std::string, Value> globals_;
+    std::vector<std::map<std::string, Value>> scopes_ = {std::map<std::string, Value>{}};
 };
 
 #endif // CODECRAFTERS_EVALUATOR_H

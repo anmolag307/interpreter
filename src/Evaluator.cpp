@@ -5,6 +5,18 @@
 #include <iostream>
 #include <sstream>
 
+void Evaluator::beginScope() {
+    scopes_.push_back(std::map<std::string, Value>{});
+}
+
+int Evaluator::endScope() {
+    if (scopes_.size() <= 1) {
+        return 65;
+    }
+    scopes_.pop_back();
+    return 0;
+}
+
 int Evaluator::declareVariableFromString(const std::string& source) {
     hasError_ = false;
     errorCode_ = 0;
@@ -58,7 +70,7 @@ int Evaluator::declareVariableFromString(const std::string& source) {
         }
     }
 
-    globals_[name] = value;
+    scopes_.back()[name] = value;
     return 0;
 }
 
@@ -124,17 +136,19 @@ Evaluator::Value Evaluator::parseAssignment(const std::string& source, int& i) {
             Value value = parseAssignment(source, i);
             if (hasError_) return Value{};
 
-            auto it = globals_.find(name);
-            if (it == globals_.end()) {
-                int line = lineNumberAt(source, nameStart);
-                std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
-                hasError_ = true;
-                errorCode_ = 70;
-                return Value{};
+            for (auto scopeIt = scopes_.rbegin(); scopeIt != scopes_.rend(); ++scopeIt) {
+                auto it = scopeIt->find(name);
+                if (it != scopeIt->end()) {
+                    it->second = value;
+                    return value;
+                }
             }
 
-            it->second = value;
-            return value;
+            int line = lineNumberAt(source, nameStart);
+            std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
+            hasError_ = true;
+            errorCode_ = 70;
+            return Value{};
         }
     }
 
@@ -392,16 +406,18 @@ Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
             ++i;
         }
 
-        auto it = globals_.find(name);
-        if (it == globals_.end()) {
-            int line = lineNumberAt(source, i);
-            std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
-            hasError_ = true;
-            errorCode_ = 70;
-            return Value{};
+        for (auto scopeIt = scopes_.rbegin(); scopeIt != scopes_.rend(); ++scopeIt) {
+            auto it = scopeIt->find(name);
+            if (it != scopeIt->end()) {
+                return it->second;
+            }
         }
 
-        return it->second;
+        int line = lineNumberAt(source, i);
+        std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
+        hasError_ = true;
+        errorCode_ = 70;
+        return Value{};
     }
 
     if (isdigit((unsigned char)source[i])) {
