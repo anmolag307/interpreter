@@ -19,6 +19,7 @@ private:
     using Value = std::variant<std::monostate, NumberLiteral, double, bool, std::string>; // nil, number literal, evaluated number, bool, string
 
     Value parseExpression(const std::string& source, int& i);
+    Value parseAssignment(const std::string& source, int& i);
     Value parseEquality(const std::string& source, int& i);
     Value parseComparison(const std::string& source, int& i);
     Value parseAdditive(const std::string& source, int& i);

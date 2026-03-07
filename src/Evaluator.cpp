@@ -92,6 +92,53 @@ int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
 }
 
 Evaluator::Value Evaluator::parseExpression(const std::string& source, int& i) {
+    return parseAssignment(source, i);
+}
+
+Evaluator::Value Evaluator::parseAssignment(const std::string& source, int& i) {
+    auto skipWhitespace = [&](void) {
+        while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+            ++i;
+        }
+    };
+
+    int start = i;
+    skipWhitespace();
+
+    // Parse `identifier = assignment` with right associativity.
+    if (i < (int)source.size() && isIdentifierStart(source[i]) &&
+        !matchesKeyword(source, i, "true") &&
+        !matchesKeyword(source, i, "false") &&
+        !matchesKeyword(source, i, "nil")) {
+        int nameStart = i;
+        std::string name;
+        while (i < (int)source.size() && isIdentifierPart(source[i])) {
+            name += source[i];
+            ++i;
+        }
+
+        skipWhitespace();
+        if (i < (int)source.size() && source[i] == '=' &&
+            (i + 1 >= (int)source.size() || source[i + 1] != '=')) {
+            ++i;
+            Value value = parseAssignment(source, i);
+            if (hasError_) return Value{};
+
+            auto it = globals_.find(name);
+            if (it == globals_.end()) {
+                int line = lineNumberAt(source, nameStart);
+                std::cerr << "[line " << line << "] Error: Undefined variable '" << name << "'." << std::endl;
+                hasError_ = true;
+                errorCode_ = 70;
+                return Value{};
+            }
+
+            it->second = value;
+            return value;
+        }
+    }
+
+    i = start;
     return parseEquality(source, i);
 }
 
