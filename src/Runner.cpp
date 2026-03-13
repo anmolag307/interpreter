@@ -89,6 +89,138 @@ bool parseIfCondition(const std::string& statement, std::string& condition) {
     return trailing.empty();
 }
 
+bool parseWhileStatement(const std::string& statement, std::string& condition, std::string& trailingStatement) {
+    std::string s = trim(statement);
+    if (!startsWithKeyword(s, "while")) {
+        return false;
+    }
+
+    int i = 5;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || s[i] != '(') {
+        return false;
+    }
+
+    int start = ++i;
+    int depth = 1;
+    while (i < (int)s.size() && depth > 0) {
+        if (s[i] == '(') {
+            ++depth;
+        } else if (s[i] == ')') {
+            --depth;
+        }
+        ++i;
+    }
+
+    if (depth != 0) {
+        return false;
+    }
+
+    int end = i - 1;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    condition = s.substr(start, end - start);
+    trailingStatement = trim(s.substr(i));
+    return true;
+}
+
+bool parseForStatement(
+    const std::string& statement,
+    std::string& initializer,
+    std::string& condition,
+    std::string& increment,
+    std::string& trailingStatement) {
+    std::string s = trim(statement);
+    if (!startsWithKeyword(s, "for")) {
+        return false;
+    }
+
+    int i = 3;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || s[i] != '(') {
+        return false;
+    }
+
+    int headerStart = ++i;
+    int depth = 1;
+    bool inString = false;
+    while (i < (int)s.size() && depth > 0) {
+        char c = s[i];
+        if (c == '"') {
+            inString = !inString;
+        } else if (!inString) {
+            if (c == '(') {
+                ++depth;
+            } else if (c == ')') {
+                --depth;
+            }
+        }
+        ++i;
+    }
+
+    if (depth != 0) {
+        return false;
+    }
+
+    int headerEnd = i - 1;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+    trailingStatement = trim(s.substr(i));
+
+    std::string header = s.substr(headerStart, headerEnd - headerStart);
+    int semi1 = -1;
+    int semi2 = -1;
+    int nestedParens = 0;
+    inString = false;
+    for (int j = 0; j < (int)header.size(); ++j) {
+        char c = header[j];
+        if (c == '"') {
+            inString = !inString;
+            continue;
+        }
+        if (inString) {
+            continue;
+        }
+        if (c == '(') {
+            ++nestedParens;
+            continue;
+        }
+        if (c == ')') {
+            if (nestedParens > 0) {
+                --nestedParens;
+            }
+            continue;
+        }
+        if (c == ';' && nestedParens == 0) {
+            if (semi1 < 0) {
+                semi1 = j;
+            } else if (semi2 < 0) {
+                semi2 = j;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    if (semi1 < 0 || semi2 < 0) {
+        return false;
+    }
+
+    initializer = trim(header.substr(0, semi1));
+    condition = trim(header.substr(semi1 + 1, semi2 - semi1 - 1));
+    increment = trim(header.substr(semi2 + 1));
+    return true;
+}
+
 struct ElseStatement {
     bool matches = false;
     bool isElseIf = false;
@@ -133,6 +265,20 @@ bool allowsOpeningBraceAfterHeader(const std::string& statement) {
         return true;
     }
 
+    std::string whileCondition;
+    std::string whileTrailing;
+    if (parseWhileStatement(statement, whileCondition, whileTrailing) && whileTrailing.empty()) {
+        return true;
+    }
+
+    std::string forInit;
+    std::string forCond;
+    std::string forInc;
+    std::string forTrailing;
+    if (parseForStatement(statement, forInit, forCond, forInc, forTrailing) && forTrailing.empty()) {
+        return true;
+    }
+
     ElseStatement elseInfo = parseElseStatement(statement);
     return elseInfo.matches && !elseInfo.malformedElseIf && elseInfo.trailingStatement.empty();
 }
@@ -152,6 +298,7 @@ int Runner::runFromString(const std::string& source) {
     bool inString = false;
     int stringStartLine = 1;
     bool inComment = false;
+    int parenDepth = 0;
     int blockDepth = 0;
     std::vector<int> blockStartLines;
     struct PendingStatement {
@@ -183,6 +330,14 @@ int Runner::runFromString(const std::string& source) {
                 stringStartLine = line;
             }
             inString = !inString;
+        }
+
+        if (!inString) {
+            if (c == '(') {
+                ++parenDepth;
+            } else if (c == ')' && parenDepth > 0) {
+                --parenDepth;
+            }
         }
 
         if (!inString && c == '{') {
@@ -221,7 +376,7 @@ int Runner::runFromString(const std::string& source) {
             continue;
         }
 
-        if (!inString && c == ';') {
+        if (!inString && parenDepth == 0 && c == ';') {
             std::string statement = trim(current);
             if (!statement.empty()) {
                 statements.push_back({statement, statementLine});
@@ -303,6 +458,28 @@ int Runner::runFromString(const std::string& source) {
             return 0;
         }
         return runRegularStatement(text, stmtLine);
+    };
+
+    auto runForInitializer = [&](const std::string& initializer, int stmtLine) -> int {
+        std::string init = trim(initializer);
+        if (init.empty()) {
+            return 0;
+        }
+
+        bool isVarDeclaration =
+            init.rfind("var", 0) == 0 &&
+            (init.size() == 3 || std::isspace((unsigned char)init[3]));
+
+        if (isVarDeclaration) {
+            std::string declaration = trim(init.substr(3));
+            if (declaration.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
+                return 65;
+            }
+            return evaluator.declareVariableFromString(declaration);
+        }
+
+        return evaluator.evaluateFromString(init, false);
     };
 
     std::function<int(int, bool)> consumeBlock = [&](int index, bool shouldExecute) -> int {
@@ -469,6 +646,133 @@ int Runner::runFromString(const std::string& source) {
                     return -1;
                 }
             }
+        }
+
+        std::string whileCondition;
+        std::string whileTrailing;
+        if (parseWhileStatement(statement, whileCondition, whileTrailing)) {
+            if (whileCondition.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ')': Expect expression." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            if (!shouldExecute) {
+                int nextIndex = -1;
+                if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.")) {
+                    return -1;
+                }
+                return nextIndex;
+            }
+
+            while (true) {
+                bool conditionValue = false;
+                int code = evaluator.evaluateConditionFromString(whileCondition, conditionValue);
+                if (code != 0) {
+                    errorCode = code;
+                    return -1;
+                }
+
+                int nextIndex = -1;
+                if (!conditionValue) {
+                    if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.")) {
+                        return -1;
+                    }
+                    return nextIndex;
+                }
+
+                if (!consumeBody(index, whileTrailing, true, nextIndex, "Expect statement after while condition.")) {
+                    return -1;
+                }
+            }
+        }
+
+        std::string forInitializer;
+        std::string forCondition;
+        std::string forIncrement;
+        std::string forTrailing;
+        if (parseForStatement(statement, forInitializer, forCondition, forIncrement, forTrailing)) {
+            if (!shouldExecute) {
+                int nextIndex = -1;
+                if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.")) {
+                    return -1;
+                }
+                return nextIndex;
+            }
+
+            evaluator.beginScope();
+            bool forScopeActive = true;
+
+            auto closeForScope = [&]() -> bool {
+                if (!forScopeActive) {
+                    return true;
+                }
+                forScopeActive = false;
+                int closeCode = evaluator.endScope();
+                if (closeCode != 0) {
+                    std::cerr << "[line " << stmtLine << "] Error at 'for': Invalid loop scope." << std::endl;
+                    errorCode = closeCode;
+                    return false;
+                }
+                return true;
+            };
+
+            int initCode = runForInitializer(forInitializer, stmtLine);
+            if (initCode != 0) {
+                errorCode = initCode;
+                closeForScope();
+                return -1;
+            }
+
+            while (true) {
+                bool conditionValue = true;
+                if (!forCondition.empty()) {
+                    int condCode = evaluator.evaluateConditionFromString(forCondition, conditionValue);
+                    if (condCode != 0) {
+                        errorCode = condCode;
+                        closeForScope();
+                        return -1;
+                    }
+                }
+
+                int nextIndex = -1;
+                if (!conditionValue) {
+                    if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.")) {
+                        closeForScope();
+                        return -1;
+                    }
+                    if (!closeForScope()) {
+                        return -1;
+                    }
+                    return nextIndex;
+                }
+
+                if (!consumeBody(index, forTrailing, true, nextIndex, "Expect statement after for clauses.")) {
+                    closeForScope();
+                    return -1;
+                }
+
+                if (!forIncrement.empty()) {
+                    int incCode = evaluator.evaluateFromString(forIncrement, false);
+                    if (incCode != 0) {
+                        errorCode = incCode;
+                        closeForScope();
+                        return -1;
+                    }
+                }
+            }
+        }
+
+        if (startsWithKeyword(statement, "while")) {
+            std::cerr << "[line " << stmtLine << "] Error at 'while': Expect '(' after 'while'." << std::endl;
+            errorCode = 65;
+            return -1;
+        }
+
+        if (startsWithKeyword(statement, "for")) {
+            std::cerr << "[line " << stmtLine << "] Error at 'for': Expect '(' after 'for'." << std::endl;
+            errorCode = 65;
+            return -1;
         }
 
         ElseStatement danglingElse = parseElseStatement(statement);
