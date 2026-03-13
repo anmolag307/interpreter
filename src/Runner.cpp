@@ -1,6 +1,7 @@
 #include "../include/Runner.h"
 #include "../include/Evaluator.h"
 #include <cctype>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -87,6 +88,54 @@ bool parseIfCondition(const std::string& statement, std::string& condition) {
     }
     return trailing.empty();
 }
+
+struct ElseStatement {
+    bool matches = false;
+    bool isElseIf = false;
+    bool malformedElseIf = false;
+    std::string condition;
+    std::string trailingStatement;
+};
+
+ElseStatement parseElseStatement(const std::string& statement) {
+    ElseStatement result;
+    std::string s = trim(statement);
+    if (!startsWithKeyword(s, "else")) {
+        return result;
+    }
+
+    result.matches = true;
+    int i = 4;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size()) {
+        return result;
+    }
+
+    std::string rest = trim(s.substr(i));
+    if (startsWithKeyword(rest, "if")) {
+        result.isElseIf = true;
+        if (!parseIfStatement(rest, result.condition, result.trailingStatement)) {
+            result.malformedElseIf = true;
+        }
+        return result;
+    }
+
+    result.trailingStatement = rest;
+    return result;
+}
+
+bool allowsOpeningBraceAfterHeader(const std::string& statement) {
+    std::string ifCondition;
+    if (parseIfCondition(statement, ifCondition)) {
+        return true;
+    }
+
+    ElseStatement elseInfo = parseElseStatement(statement);
+    return elseInfo.matches && !elseInfo.malformedElseIf && elseInfo.trailingStatement.empty();
+}
 }
 
 int Runner::runFromString(const std::string& source) {
@@ -139,8 +188,7 @@ int Runner::runFromString(const std::string& source) {
         if (!inString && c == '{') {
             std::string beforeBrace = trim(current);
             if (!beforeBrace.empty()) {
-                std::string ifCondition;
-                if (!parseIfCondition(beforeBrace, ifCondition)) {
+                if (!allowsOpeningBraceAfterHeader(beforeBrace)) {
                     std::cerr << "[line " << line << "] Error at '{': Expect ';' after statement." << std::endl;
                     return 65;
                 }
@@ -211,22 +259,6 @@ int Runner::runFromString(const std::string& source) {
     }
 
     Evaluator evaluator;
-    struct BlockFrame {
-        bool executes;
-        bool hasScope;
-    };
-    std::vector<BlockFrame> blockFrames;
-    bool pendingIf = false;
-    bool pendingIfResult = false;
-
-    auto isCurrentBranchActive = [&]() {
-        for (const auto& frame : blockFrames) {
-            if (!frame.executes) {
-                return false;
-            }
-        }
-        return true;
-    };
 
     auto runRegularStatement = [&](const std::string& statement, int stmtLine) -> int {
         bool isPrintStatement =
@@ -263,99 +295,190 @@ int Runner::runFromString(const std::string& source) {
         return evaluator.evaluateFromString(expression, isPrintStatement);
     };
 
-    for (const auto& pending : statements) {
-        const std::string& statement = pending.text;
-        int stmtLine = pending.line;
+    int errorCode = 0;
+    std::function<int(int, bool)> consumeStatement;
 
-        if (statement == "{") {
-            bool parentActive = isCurrentBranchActive();
-            bool blockExecutes = parentActive;
-            if (pendingIf) {
-                blockExecutes = parentActive && pendingIfResult;
-                pendingIf = false;
-            }
-
-            if (blockExecutes) {
-                evaluator.beginScope();
-            }
-            blockFrames.push_back({blockExecutes, blockExecutes});
-            continue;
+    auto runMaybe = [&](const std::string& text, int stmtLine, bool shouldExecute) -> int {
+        if (!shouldExecute) {
+            return 0;
         }
+        return runRegularStatement(text, stmtLine);
+    };
+
+    std::function<int(int, bool)> consumeBlock = [&](int index, bool shouldExecute) -> int {
+        if (index >= (int)statements.size() || statements[index].text != "{") {
+            return -1;
+        }
+
+        if (shouldExecute) {
+            evaluator.beginScope();
+        }
+
+        int i = index + 1;
+        while (i < (int)statements.size()) {
+            if (statements[i].text == "}") {
+                if (shouldExecute) {
+                    int code = evaluator.endScope();
+                    if (code != 0) {
+                        std::cerr << "[line " << statements[i].line << "] Error at '}': Unexpected '}'" << std::endl;
+                        errorCode = code;
+                        return -1;
+                    }
+                }
+                return i + 1;
+            }
+
+            i = consumeStatement(i, shouldExecute);
+            if (i < 0) {
+                return -1;
+            }
+        }
+
+        int errLine = statements[index].line;
+        std::cerr << "[line " << errLine << "] Error at 'end': Expect '}' after block." << std::endl;
+        errorCode = 65;
+        return -1;
+    };
+
+    auto consumeBody = [&](int headerIndex,
+                           const std::string& inlineBody,
+                           bool shouldExecute,
+                           int& outNextIndex,
+                           const std::string& missingBodyMessage) -> bool {
+        if (!inlineBody.empty()) {
+            int code = runMaybe(inlineBody, statements[headerIndex].line, shouldExecute);
+            if (code != 0) {
+                errorCode = code;
+                return false;
+            }
+            outNextIndex = headerIndex + 1;
+            return true;
+        }
+
+        int bodyIndex = headerIndex + 1;
+        if (bodyIndex >= (int)statements.size()) {
+            std::cerr << "[line " << statements[headerIndex].line << "] Error at 'end': " << missingBodyMessage << std::endl;
+            errorCode = 65;
+            return false;
+        }
+
+        outNextIndex = consumeStatement(bodyIndex, shouldExecute);
+        return outNextIndex >= 0;
+    };
+
+    consumeStatement = [&](int index, bool shouldExecute) -> int {
+        if (index < 0 || index >= (int)statements.size()) {
+            return -1;
+        }
+
+        const std::string statement = trim(statements[index].text);
+        const int stmtLine = statements[index].line;
 
         if (statement == "}") {
-            if (blockFrames.empty()) {
-                std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
-                return 65;
-            }
-
-            BlockFrame frame = blockFrames.back();
-            blockFrames.pop_back();
-            if (frame.hasScope) {
-                int code = evaluator.endScope();
-                if (code != 0) {
-                    std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
-                    return code;
-                }
-            }
-            continue;
+            std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
+            errorCode = 65;
+            return -1;
         }
 
-        if (pendingIf) {
-            bool canRun = isCurrentBranchActive() && pendingIfResult;
-            pendingIf = false;
-            if (!canRun) {
-                continue;
-            }
+        if (statement == "{") {
+            return consumeBlock(index, shouldExecute);
         }
 
-        std::string ifCondition;
-        std::string inlineThen;
-        if (parseIfStatement(statement, ifCondition, inlineThen)) {
-            if (ifCondition.empty()) {
+        std::string firstCond;
+        std::string firstTrailing;
+        if (parseIfStatement(statement, firstCond, firstTrailing)) {
+            if (firstCond.empty()) {
                 std::cerr << "[line " << stmtLine << "] Error at ')': Expect expression." << std::endl;
-                return 65;
+                errorCode = 65;
+                return -1;
             }
 
-            bool shouldRun = false;
-            if (isCurrentBranchActive()) {
-                bool conditionValue = false;
-                int code = evaluator.evaluateConditionFromString(ifCondition, conditionValue);
-                if (code != 0) {
-                    return code;
+            int clauseIndex = index;
+            bool branchTaken = false;
+            bool clauseIsConditional = true;
+            std::string clauseCondition = firstCond;
+            std::string clauseTrailing = firstTrailing;
+
+            while (true) {
+                bool clauseMatches = false;
+                if (clauseIsConditional) {
+                    bool conditionValue = false;
+                    if (shouldExecute) {
+                        int code = evaluator.evaluateConditionFromString(clauseCondition, conditionValue);
+                        if (code != 0) {
+                            errorCode = code;
+                            return -1;
+                        }
+                    }
+                    clauseMatches = shouldExecute && conditionValue;
+                } else {
+                    clauseMatches = shouldExecute;
                 }
-                shouldRun = conditionValue;
-            }
 
-            if (inlineThen.empty()) {
-                pendingIf = true;
-                pendingIfResult = shouldRun;
-                continue;
-            }
+                bool executeThisBody = clauseMatches && !branchTaken;
+                int nextIndex = -1;
+                if (!consumeBody(
+                        clauseIndex,
+                        clauseTrailing,
+                        executeThisBody,
+                        nextIndex,
+                        clauseIsConditional ? "Expect statement after if condition." : "Expect statement after else.")) {
+                    return -1;
+                }
 
-            if (!shouldRun) {
-                continue;
-            }
+                if (executeThisBody) {
+                    branchTaken = true;
+                }
 
-            int code = runRegularStatement(inlineThen, stmtLine);
-            if (code != 0) {
-                return code;
+                if (nextIndex >= (int)statements.size()) {
+                    return nextIndex;
+                }
+
+                ElseStatement elseInfo = parseElseStatement(statements[nextIndex].text);
+                if (!elseInfo.matches) {
+                    return nextIndex;
+                }
+
+                if (elseInfo.malformedElseIf) {
+                    std::cerr << "[line " << statements[nextIndex].line << "] Error at 'if': Expect '(' after 'if'." << std::endl;
+                    errorCode = 65;
+                    return -1;
+                }
+
+                clauseIndex = nextIndex;
+                clauseIsConditional = elseInfo.isElseIf;
+                clauseCondition = elseInfo.condition;
+                clauseTrailing = elseInfo.trailingStatement;
+
+                if (clauseIsConditional && clauseCondition.empty()) {
+                    std::cerr << "[line " << statements[clauseIndex].line << "] Error at ')': Expect expression." << std::endl;
+                    errorCode = 65;
+                    return -1;
+                }
             }
-            continue;
         }
 
-        if (!isCurrentBranchActive()) {
-            continue;
+        ElseStatement danglingElse = parseElseStatement(statement);
+        if (danglingElse.matches) {
+            std::cerr << "[line " << stmtLine << "] Error at 'else': Unexpected 'else'." << std::endl;
+            errorCode = 65;
+            return -1;
         }
 
-        int code = runRegularStatement(statement, stmtLine);
+        int code = runMaybe(statement, stmtLine, shouldExecute);
         if (code != 0) {
-            return code;
+            errorCode = code;
+            return -1;
         }
-    }
+        return index + 1;
+    };
 
-    if (pendingIf) {
-        std::cerr << "[line " << line << "] Error at 'end': Expect '{' after if condition." << std::endl;
-        return 65;
+    int index = 0;
+    while (index < (int)statements.size()) {
+        index = consumeStatement(index, true);
+        if (index < 0) {
+            return errorCode == 0 ? 65 : errorCode;
+        }
     }
 
     return 0;
