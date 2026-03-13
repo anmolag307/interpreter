@@ -46,6 +46,7 @@ private:
 
     bool hasError_ = false;
     int errorCode_ = 0;
+    int suppressedEvalDepth_ = 0;
     std::vector<std::map<std::string, Value>> scopes_ = {std::map<std::string, Value>{}};
 };
 

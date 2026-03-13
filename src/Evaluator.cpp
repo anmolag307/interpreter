@@ -163,6 +163,10 @@ Evaluator::Value Evaluator::parseAssignment(const std::string& source, int& i) {
             Value value = parseAssignment(source, i);
             if (hasError_) return Value{};
 
+            if (suppressedEvalDepth_ > 0) {
+                return value;
+            }
+
             for (auto scopeIt = scopes_.rbegin(); scopeIt != scopes_.rend(); ++scopeIt) {
                 auto it = scopeIt->find(name);
                 if (it != scopeIt->end()) {
@@ -201,7 +205,9 @@ Evaluator::Value Evaluator::parseOr(const std::string& source, int& i) {
 
         i += 2;
         if (isTruthy(left)) {
+            ++suppressedEvalDepth_;
             Value ignored = parseAnd(source, i);
+            --suppressedEvalDepth_;
             (void)ignored;
             if (hasError_) return Value{};
             continue;
@@ -232,7 +238,9 @@ Evaluator::Value Evaluator::parseAnd(const std::string& source, int& i) {
 
         i += 3;
         if (!isTruthy(left)) {
+            ++suppressedEvalDepth_;
             Value ignored = parseEquality(source, i);
+            --suppressedEvalDepth_;
             (void)ignored;
             if (hasError_) return Value{};
             continue;
@@ -307,6 +315,10 @@ Evaluator::Value Evaluator::parseComparison(const std::string& source, int& i) {
         double l = 0.0;
         double r = 0.0;
         if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
+            if (suppressedEvalDepth_ > 0) {
+                left = Value(std::monostate{});
+                continue;
+            }
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
@@ -351,6 +363,10 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
             } else if (std::holds_alternative<std::string>(left) && std::holds_alternative<std::string>(right)) {
                 left = Value(std::get<std::string>(left) + std::get<std::string>(right));
             } else {
+                if (suppressedEvalDepth_ > 0) {
+                    left = Value(std::monostate{});
+                    continue;
+                }
                 int line = lineNumberAt(source, i);
                 std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
                 hasError_ = true;
@@ -361,6 +377,10 @@ Evaluator::Value Evaluator::parseAdditive(const std::string& source, int& i) {
             double l = 0.0;
             double r = 0.0;
             if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
+                if (suppressedEvalDepth_ > 0) {
+                    left = Value(std::monostate{});
+                    continue;
+                }
                 int line = lineNumberAt(source, i);
                 std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
                 hasError_ = true;
@@ -397,6 +417,10 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
         double l = 0.0;
         double r = 0.0;
         if (!tryGetNumber(left, l) || !tryGetNumber(right, r)) {
+            if (suppressedEvalDepth_ > 0) {
+                left = Value(std::monostate{});
+                continue;
+            }
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
@@ -433,6 +457,9 @@ Evaluator::Value Evaluator::parseUnary(const std::string& source, int& i) {
 
         double r = 0.0;
         if (!tryGetNumber(right, r)) {
+            if (suppressedEvalDepth_ > 0) {
+                return Value(std::monostate{});
+            }
             int line = lineNumberAt(source, i);
             std::cerr << "[line " << line << "] Error: Operands must be number." << std::endl;
             hasError_ = true;
@@ -500,6 +527,10 @@ Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
             if (it != scopeIt->end()) {
                 return it->second;
             }
+        }
+
+        if (suppressedEvalDepth_ > 0) {
+            return Value(std::monostate{});
         }
 
         int line = lineNumberAt(source, i);
