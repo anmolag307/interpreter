@@ -24,6 +24,8 @@ private:
 
     Value parseExpression(const std::string& source, int& i);
     Value parseAssignment(const std::string& source, int& i);
+    Value parseOr(const std::string& source, int& i);
+    Value parseAnd(const std::string& source, int& i);
     Value parseEquality(const std::string& source, int& i);
     Value parseComparison(const std::string& source, int& i);
     Value parseAdditive(const std::string& source, int& i);

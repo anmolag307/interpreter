@@ -180,7 +180,69 @@ Evaluator::Value Evaluator::parseAssignment(const std::string& source, int& i) {
     }
 
     i = start;
-    return parseEquality(source, i);
+    return parseOr(source, i);
+}
+
+Evaluator::Value Evaluator::parseOr(const std::string& source, int& i) {
+    auto skipWhitespace = [&](void) {
+        while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+            ++i;
+        }
+    };
+
+    Value left = parseAnd(source, i);
+    if (hasError_) return Value{};
+
+    while (true) {
+        skipWhitespace();
+        if (!matchesKeyword(source, i, "or")) {
+            break;
+        }
+
+        i += 2;
+        if (isTruthy(left)) {
+            Value ignored = parseAnd(source, i);
+            (void)ignored;
+            if (hasError_) return Value{};
+            continue;
+        }
+
+        left = parseAnd(source, i);
+        if (hasError_) return Value{};
+    }
+
+    return left;
+}
+
+Evaluator::Value Evaluator::parseAnd(const std::string& source, int& i) {
+    auto skipWhitespace = [&](void) {
+        while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+            ++i;
+        }
+    };
+
+    Value left = parseEquality(source, i);
+    if (hasError_) return Value{};
+
+    while (true) {
+        skipWhitespace();
+        if (!matchesKeyword(source, i, "and")) {
+            break;
+        }
+
+        i += 3;
+        if (!isTruthy(left)) {
+            Value ignored = parseEquality(source, i);
+            (void)ignored;
+            if (hasError_) return Value{};
+            continue;
+        }
+
+        left = parseEquality(source, i);
+        if (hasError_) return Value{};
+    }
+
+    return left;
 }
 
 Evaluator::Value Evaluator::parseEquality(const std::string& source, int& i) {
