@@ -23,6 +23,65 @@ std::string trim(const std::string& s) {
 
     return s.substr(start, end - start + 1);
 }
+
+bool startsWithKeyword(const std::string& text, const std::string& keyword) {
+    if (text.size() < keyword.size()) {
+        return false;
+    }
+
+    if (text.compare(0, keyword.size(), keyword) != 0) {
+        return false;
+    }
+
+    if (text.size() == keyword.size()) {
+        return true;
+    }
+
+    return std::isspace((unsigned char)text[keyword.size()]);
+}
+
+bool parseIfCondition(const std::string& statement, std::string& condition) {
+    std::string s = trim(statement);
+    if (!startsWithKeyword(s, "if")) {
+        return false;
+    }
+
+    int i = 2;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || s[i] != '(') {
+        return false;
+    }
+
+    int start = ++i;
+    int depth = 1;
+    while (i < (int)s.size() && depth > 0) {
+        if (s[i] == '(') {
+            ++depth;
+        } else if (s[i] == ')') {
+            --depth;
+        }
+        ++i;
+    }
+
+    if (depth != 0) {
+        return false;
+    }
+
+    int end = i - 1;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i != (int)s.size()) {
+        return false;
+    }
+
+    condition = s.substr(start, end - start);
+    return true;
+}
 }
 
 int Runner::runFromString(const std::string& source) {
@@ -73,9 +132,15 @@ int Runner::runFromString(const std::string& source) {
         }
 
         if (!inString && c == '{') {
-            if (!trim(current).empty()) {
-                std::cerr << "[line " << line << "] Error at '{': Expect ';' after statement." << std::endl;
-                return 65;
+            std::string beforeBrace = trim(current);
+            if (!beforeBrace.empty()) {
+                std::string ifCondition;
+                if (!parseIfCondition(beforeBrace, ifCondition)) {
+                    std::cerr << "[line " << line << "] Error at '{': Expect ';' after statement." << std::endl;
+                    return 65;
+                }
+                statements.push_back({beforeBrace, statementLine});
+                current.clear();
             }
 
             ++blockDepth;
@@ -141,21 +206,91 @@ int Runner::runFromString(const std::string& source) {
     }
 
     Evaluator evaluator;
+    struct BlockFrame {
+        bool executes;
+        bool hasScope;
+    };
+    std::vector<BlockFrame> blockFrames;
+    bool pendingIf = false;
+    bool pendingIfResult = false;
+
+    auto isCurrentBranchActive = [&]() {
+        for (const auto& frame : blockFrames) {
+            if (!frame.executes) {
+                return false;
+            }
+        }
+        return true;
+    };
+
     for (const auto& pending : statements) {
         const std::string& statement = pending.text;
         int stmtLine = pending.line;
 
         if (statement == "{") {
-            evaluator.beginScope();
+            bool parentActive = isCurrentBranchActive();
+            bool blockExecutes = parentActive;
+            if (pendingIf) {
+                blockExecutes = parentActive && pendingIfResult;
+                pendingIf = false;
+            }
+
+            if (blockExecutes) {
+                evaluator.beginScope();
+            }
+            blockFrames.push_back({blockExecutes, blockExecutes});
             continue;
         }
 
         if (statement == "}") {
-            int code = evaluator.endScope();
-            if (code != 0) {
+            if (blockFrames.empty()) {
                 std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
-                return code;
+                return 65;
             }
+
+            BlockFrame frame = blockFrames.back();
+            blockFrames.pop_back();
+            if (frame.hasScope) {
+                int code = evaluator.endScope();
+                if (code != 0) {
+                    std::cerr << "[line " << stmtLine << "] Error at '}': Unexpected '}'" << std::endl;
+                    return code;
+                }
+            }
+            continue;
+        }
+
+        if (pendingIf) {
+            bool canRun = isCurrentBranchActive() && pendingIfResult;
+            pendingIf = false;
+            if (!canRun) {
+                continue;
+            }
+        }
+
+        std::string ifCondition;
+        if (parseIfCondition(statement, ifCondition)) {
+            if (ifCondition.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ')': Expect expression." << std::endl;
+                return 65;
+            }
+
+            if (isCurrentBranchActive()) {
+                bool conditionValue = false;
+                int code = evaluator.evaluateConditionFromString(ifCondition, conditionValue);
+                if (code != 0) {
+                    return code;
+                }
+                pendingIfResult = conditionValue;
+            } else {
+                pendingIfResult = false;
+            }
+
+            pendingIf = true;
+            continue;
+        }
+
+        if (!isCurrentBranchActive()) {
             continue;
         }
 
@@ -194,6 +329,11 @@ int Runner::runFromString(const std::string& source) {
         if (code != 0) {
             return code;
         }
+    }
+
+    if (pendingIf) {
+        std::cerr << "[line " << line << "] Error at 'end': Expect '{' after if condition." << std::endl;
+        return 65;
     }
 
     return 0;

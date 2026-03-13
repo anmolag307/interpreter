@@ -103,6 +103,33 @@ int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     return 0;
 }
 
+int Evaluator::evaluateConditionFromString(const std::string& source, bool& outTruthValue) {
+    hasError_ = false;
+    errorCode_ = 0;
+
+    int i = 0;
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    Value result = parseExpression(source, i);
+    if (hasError_) {
+        return errorCode_;
+    }
+
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    if (i < (int)source.size()) {
+        reportExpectExpression(source, i);
+        return errorCode_;
+    }
+
+    outTruthValue = isTruthy(result);
+    return 0;
+}
+
 Evaluator::Value Evaluator::parseExpression(const std::string& source, int& i) {
     return parseAssignment(source, i);
 }

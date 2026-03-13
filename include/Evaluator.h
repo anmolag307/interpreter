@@ -10,6 +10,7 @@ class Evaluator {
 public:
     Evaluator() = default;
     int evaluateFromString(const std::string& source, bool printResult = true);
+    int evaluateConditionFromString(const std::string& source, bool& outTruthValue);
     int declareVariableFromString(const std::string& source);
     void beginScope();
     int endScope();
