@@ -40,7 +40,7 @@ bool startsWithKeyword(const std::string& text, const std::string& keyword) {
     return std::isspace((unsigned char)text[keyword.size()]);
 }
 
-bool parseIfCondition(const std::string& statement, std::string& condition) {
+bool parseIfStatement(const std::string& statement, std::string& condition, std::string& trailingStatement) {
     std::string s = trim(statement);
     if (!startsWithKeyword(s, "if")) {
         return false;
@@ -75,12 +75,17 @@ bool parseIfCondition(const std::string& statement, std::string& condition) {
         ++i;
     }
 
-    if (i != (int)s.size()) {
+    condition = s.substr(start, end - start);
+    trailingStatement = trim(s.substr(i));
+    return true;
+}
+
+bool parseIfCondition(const std::string& statement, std::string& condition) {
+    std::string trailing;
+    if (!parseIfStatement(statement, condition, trailing)) {
         return false;
     }
-
-    condition = s.substr(start, end - start);
-    return true;
+    return trailing.empty();
 }
 }
 
@@ -223,6 +228,41 @@ int Runner::runFromString(const std::string& source) {
         return true;
     };
 
+    auto runRegularStatement = [&](const std::string& statement, int stmtLine) -> int {
+        bool isPrintStatement =
+            statement.rfind("print", 0) == 0 &&
+            (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
+
+        bool isVarDeclaration =
+            statement.rfind("var", 0) == 0 &&
+            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
+
+        if (isVarDeclaration) {
+            std::string declaration = trim(statement.substr(3));
+            if (declaration.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
+                return 65;
+            }
+
+            int code = evaluator.declareVariableFromString(declaration);
+            if (code != 0) {
+                return code;
+            }
+            return 0;
+        }
+
+        std::string expression = isPrintStatement
+            ? trim(statement.substr(5))
+            : statement;
+
+        if (expression.empty()) {
+            std::cerr << "[line " << stmtLine << "] Error at ';': Expect expression." << std::endl;
+            return 65;
+        }
+
+        return evaluator.evaluateFromString(expression, isPrintStatement);
+    };
+
     for (const auto& pending : statements) {
         const std::string& statement = pending.text;
         int stmtLine = pending.line;
@@ -269,24 +309,37 @@ int Runner::runFromString(const std::string& source) {
         }
 
         std::string ifCondition;
-        if (parseIfCondition(statement, ifCondition)) {
+        std::string inlineThen;
+        if (parseIfStatement(statement, ifCondition, inlineThen)) {
             if (ifCondition.empty()) {
                 std::cerr << "[line " << stmtLine << "] Error at ')': Expect expression." << std::endl;
                 return 65;
             }
 
+            bool shouldRun = false;
             if (isCurrentBranchActive()) {
                 bool conditionValue = false;
                 int code = evaluator.evaluateConditionFromString(ifCondition, conditionValue);
                 if (code != 0) {
                     return code;
                 }
-                pendingIfResult = conditionValue;
-            } else {
-                pendingIfResult = false;
+                shouldRun = conditionValue;
             }
 
-            pendingIf = true;
+            if (inlineThen.empty()) {
+                pendingIf = true;
+                pendingIfResult = shouldRun;
+                continue;
+            }
+
+            if (!shouldRun) {
+                continue;
+            }
+
+            int code = runRegularStatement(inlineThen, stmtLine);
+            if (code != 0) {
+                return code;
+            }
             continue;
         }
 
@@ -294,38 +347,7 @@ int Runner::runFromString(const std::string& source) {
             continue;
         }
 
-        bool isPrintStatement =
-            statement.rfind("print", 0) == 0 &&
-            (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
-
-        bool isVarDeclaration =
-            statement.rfind("var", 0) == 0 &&
-            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
-
-        if (isVarDeclaration) {
-            std::string declaration = trim(statement.substr(3));
-            if (declaration.empty()) {
-                std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
-                return 65;
-            }
-
-            int code = evaluator.declareVariableFromString(declaration);
-            if (code != 0) {
-                return code;
-            }
-            continue;
-        }
-
-        std::string expression = isPrintStatement
-            ? trim(statement.substr(5))
-            : statement;
-
-        if (expression.empty()) {
-            std::cerr << "[line " << stmtLine << "] Error at ';': Expect expression." << std::endl;
-            return 65;
-        }
-
-        int code = evaluator.evaluateFromString(expression, isPrintStatement);
+        int code = runRegularStatement(statement, stmtLine);
         if (code != 0) {
             return code;
         }
