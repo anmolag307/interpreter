@@ -346,12 +346,25 @@ int Runner::runFromString(const std::string& source) {
                            int& outNextIndex,
                            const std::string& missingBodyMessage) -> bool {
         if (!inlineBody.empty()) {
-            int code = runMaybe(inlineBody, statements[headerIndex].line, shouldExecute);
-            if (code != 0) {
-                errorCode = code;
+            PendingStatement synthetic{trim(inlineBody), statements[headerIndex].line};
+            if (synthetic.text.empty()) {
+                std::cerr << "[line " << statements[headerIndex].line << "] Error at 'end': " << missingBodyMessage << std::endl;
+                errorCode = 65;
                 return false;
             }
-            outNextIndex = headerIndex + 1;
+
+            const int insertIndex = headerIndex + 1;
+            statements.insert(statements.begin() + insertIndex, synthetic);
+
+            int consumedNext = consumeStatement(insertIndex, shouldExecute);
+
+            statements.erase(statements.begin() + insertIndex);
+
+            if (consumedNext < 0) {
+                return false;
+            }
+
+            outNextIndex = consumedNext > insertIndex ? consumedNext - 1 : consumedNext;
             return true;
         }
 
