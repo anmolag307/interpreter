@@ -79,6 +79,14 @@ int Evaluator::declareVariableFromString(const std::string& source) {
     return 0;
 }
 
+void Evaluator::defineVariable(const std::string& name, const Value& value) {
+    scopes_.back()[name] = value;
+}
+
+void Evaluator::setUserFunctionHandler(UserFunctionHandler handler) {
+    userFunctionHandler_ = std::move(handler);
+}
+
 int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     hasError_ = false;
     errorCode_ = 0;
@@ -108,6 +116,35 @@ int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     if (printResult) {
         std::cout << stringify(result) << std::endl;
     }
+    return 0;
+}
+
+int Evaluator::evaluateValueFromString(const std::string& source, Value& outValue) {
+    hasError_ = false;
+    errorCode_ = 0;
+
+    int i = 0;
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    outValue = parseExpression(source, i);
+    if (hasError_) {
+        return errorCode_;
+    }
+
+    while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+        ++i;
+    }
+
+    if (i < (int)source.size()) {
+        int line = lineNumberAt(source, i);
+        std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect ';' after value." << std::endl;
+        hasError_ = true;
+        errorCode_ = 65;
+        return errorCode_;
+    }
+
     return 0;
 }
 
@@ -559,6 +596,36 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
                 const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
                     now.time_since_epoch()).count();
                 callee = Value(static_cast<double>(seconds));
+                continue;
+            }
+        }
+
+        if (std::holds_alternative<std::string>(callee)) {
+            const std::string& valueText = std::get<std::string>(callee);
+            if (valueText.size() > 5 && valueText.rfind("<fn ", 0) == 0 && valueText.back() == '>') {
+                if (suppressedEvalDepth_ > 0) {
+                    callee = Value(std::monostate{});
+                    continue;
+                }
+
+                if (!userFunctionHandler_) {
+                    int line = lineNumberAt(source, parenIndex);
+                    std::cerr << "[line " << line << "] Error: Can only call functions and classes." << std::endl;
+                    hasError_ = true;
+                    errorCode_ = 70;
+                    return Value{};
+                }
+
+                std::string functionName = valueText.substr(4, valueText.size() - 5);
+                Value returnValue = std::monostate{};
+                int callCode = userFunctionHandler_(functionName, arguments, returnValue);
+                if (callCode != 0) {
+                    hasError_ = true;
+                    errorCode_ = callCode;
+                    return Value{};
+                }
+
+                callee = returnValue;
                 continue;
             }
         }

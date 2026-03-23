@@ -690,6 +690,21 @@ int Runner::runFromString(const std::string& source) {
 
     Evaluator evaluator;
 
+    struct ReturnSignal {
+        Evaluator::Value value;
+    };
+
+    int functionExecutionDepth = 0;
+    std::function<int(const std::string&, const std::vector<Evaluator::Value>&, Evaluator::Value&)> invokeUserFunction;
+    evaluator.setUserFunctionHandler([&](const std::string& name,
+                                        const std::vector<Evaluator::Value>& args,
+                                        Evaluator::Value& outValue) -> int {
+        if (!invokeUserFunction) {
+            return 70;
+        }
+        return invokeUserFunction(name, args, outValue);
+    });
+
     auto runRegularStatement = [&](const std::string& statement, int stmtLine) -> int {
         bool isPrintStatement =
             statement.rfind("print", 0) == 0 &&
@@ -903,16 +918,34 @@ int Runner::runFromString(const std::string& source) {
 
             if (shouldExecute) {
                 functions[declaredFunctionName] = FunctionDefinition{declaredFunctionParameters, bodyStart, bodyEnd};
+                evaluator.defineVariable(declaredFunctionName, std::string("<fn ") + declaredFunctionName + ">");
+            }
 
-                std::string functionValueDeclaration = declaredFunctionName + " = \"<fn " + declaredFunctionName + ">\"";
-                int bindCode = evaluator.declareVariableFromString(functionValueDeclaration);
-                if (bindCode != 0) {
-                    errorCode = bindCode;
+            return bodyEnd + 1;
+        }
+
+        if (startsWithKeyword(statement, "return")) {
+            if (!shouldExecute) {
+                return index + 1;
+            }
+
+            if (functionExecutionDepth <= 0) {
+                std::cerr << "[line " << stmtLine << "] Error at 'return': Can't return from top-level code." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            std::string valueExpression = trim(statement.substr(6));
+            Evaluator::Value returnValue = std::monostate{};
+            if (!valueExpression.empty()) {
+                int returnCode = evaluator.evaluateValueFromString(valueExpression, returnValue);
+                if (returnCode != 0) {
+                    errorCode = returnCode;
                     return -1;
                 }
             }
 
-            return bodyEnd + 1;
+            throw ReturnSignal{returnValue};
         }
 
         std::string firstCond;
@@ -1129,73 +1162,62 @@ int Runner::runFromString(const std::string& source) {
             return -1;
         }
 
-        std::string calledFunctionName;
-        std::vector<std::string> callArguments;
-        if (parseFunctionCallExpression(statement, calledFunctionName, callArguments)) {
-            auto functionIt = functions.find(calledFunctionName);
-            if (functionIt != functions.end()) {
-                if (!shouldExecute) {
-                    return index + 1;
-                }
-
-                const FunctionDefinition& function = functionIt->second;
-                if (callArguments.size() != function.parameters.size()) {
-                    std::cerr << "[line " << stmtLine << "] Error: Expected "
-                              << function.parameters.size() << " arguments but got "
-                              << callArguments.size() << "." << std::endl;
-                    errorCode = 70;
-                    return -1;
-                }
-
-                evaluator.beginScope();
-                bool functionScopeOpen = true;
-
-                auto closeFunctionScope = [&]() -> bool {
-                    if (!functionScopeOpen) {
-                        return true;
-                    }
-                    functionScopeOpen = false;
-                    int scopeCode = evaluator.endScope();
-                    if (scopeCode != 0) {
-                        errorCode = scopeCode;
-                        return false;
-                    }
-                    return true;
-                };
-
-                for (int argIndex = 0; argIndex < (int)callArguments.size(); ++argIndex) {
-                    std::string declaration = function.parameters[argIndex] + " = " + callArguments[argIndex];
-                    int declareCode = evaluator.declareVariableFromString(declaration);
-                    if (declareCode != 0) {
-                        errorCode = declareCode;
-                        closeFunctionScope();
-                        return -1;
-                    }
-                }
-
-                int bodyCursor = function.bodyStartIndex + 1;
-                while (bodyCursor < function.bodyEndIndex) {
-                    bodyCursor = consumeStatement(bodyCursor, true);
-                    if (bodyCursor < 0) {
-                        closeFunctionScope();
-                        return -1;
-                    }
-                }
-
-                if (!closeFunctionScope()) {
-                    return -1;
-                }
-
-                return index + 1;
-            }
-        }
-
         int code = runMaybe(statement, stmtLine, shouldExecute);
         if (code != 0) {
             errorCode = code;
             return -1;
         }
         return index + 1;
+    };
+
+    invokeUserFunction = [&](const std::string& functionName,
+                             const std::vector<Evaluator::Value>& args,
+                             Evaluator::Value& outValue) -> int {
+        auto functionIt = functions.find(functionName);
+        if (functionIt == functions.end()) {
+            std::cerr << "Error: Undefined function '" << functionName << "'." << std::endl;
+            return 70;
+        }
+
+        const FunctionDefinition& function = functionIt->second;
+        if (args.size() != function.parameters.size()) {
+            std::cerr << "Error: Expected " << function.parameters.size() << " arguments but got "
+                      << args.size() << "." << std::endl;
+            return 70;
+        }
+
+        evaluator.beginScope();
+        ++functionExecutionDepth;
+
+        for (int argIndex = 0; argIndex < (int)args.size(); ++argIndex) {
+            evaluator.defineVariable(function.parameters[argIndex], args[argIndex]);
+        }
+
+        outValue = std::monostate{};
+        try {
+            int bodyCursor = function.bodyStartIndex + 1;
+            while (bodyCursor < function.bodyEndIndex) {
+                bodyCursor = consumeStatement(bodyCursor, true);
+                if (bodyCursor < 0) {
+                    int closeCode = evaluator.endScope();
+                    --functionExecutionDepth;
+                    if (closeCode != 0) {
+                        return closeCode;
+                    }
+                    return errorCode == 0 ? 65 : errorCode;
+                }
+            }
+        } catch (const ReturnSignal& ret) {
+            outValue = ret.value;
+        }
+
+        int closeCode = evaluator.endScope();
+        --functionExecutionDepth;
+        if (closeCode != 0) {
+            return closeCode;
+        }
+
+        return 0;
     };
 
     int index = 0;

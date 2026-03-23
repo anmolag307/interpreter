@@ -5,17 +5,10 @@
 #include <map>
 #include <variant>
 #include <vector>
+#include <functional>
 
 class Evaluator {
 public:
-    Evaluator();
-    int evaluateFromString(const std::string& source, bool printResult = true);
-    int evaluateConditionFromString(const std::string& source, bool& outTruthValue);
-    int declareVariableFromString(const std::string& source);
-    void beginScope();
-    int endScope();
-
-private:
     struct NumberLiteral {
         std::string text;
     };
@@ -25,7 +18,19 @@ private:
     };
 
     using Value = std::variant<std::monostate, NumberLiteral, double, bool, std::string, NativeFunction>; // nil, number literal, evaluated number, bool, string, native function
+    using UserFunctionHandler = std::function<int(const std::string&, const std::vector<Value>&, Value&)>;
 
+    Evaluator();
+    int evaluateFromString(const std::string& source, bool printResult = true);
+    int evaluateValueFromString(const std::string& source, Value& outValue);
+    int evaluateConditionFromString(const std::string& source, bool& outTruthValue);
+    int declareVariableFromString(const std::string& source);
+    void defineVariable(const std::string& name, const Value& value);
+    void setUserFunctionHandler(UserFunctionHandler handler);
+    void beginScope();
+    int endScope();
+
+private:
     Value parseExpression(const std::string& source, int& i);
     Value parseAssignment(const std::string& source, int& i);
     Value parseOr(const std::string& source, int& i);
@@ -52,6 +57,7 @@ private:
     bool hasError_ = false;
     int errorCode_ = 0;
     int suppressedEvalDepth_ = 0;
+    UserFunctionHandler userFunctionHandler_;
     std::vector<std::map<std::string, Value>> scopes_ = {std::map<std::string, Value>{}};
 };
 
