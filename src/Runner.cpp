@@ -41,6 +41,10 @@ bool startsWithKeyword(const std::string& text, const std::string& keyword) {
     return std::isspace((unsigned char)text[keyword.size()]);
 }
 
+bool isVarDeclarationStatement(const std::string& statement) {
+    return startsWithKeyword(statement, "var");
+}
+
 bool parseIfStatement(const std::string& statement, std::string& condition, std::string& trailingStatement) {
     std::string s = trim(statement);
     if (!startsWithKeyword(s, "if")) {
@@ -530,6 +534,12 @@ int Runner::runFromString(const std::string& source) {
                 return false;
             }
 
+            if (isVarDeclarationStatement(synthetic.text)) {
+                std::cerr << "[line " << statements[headerIndex].line << "] Error at 'var': Expect expression." << std::endl;
+                errorCode = 65;
+                return false;
+            }
+
             const int insertIndex = headerIndex + 1;
             statements.insert(statements.begin() + insertIndex, synthetic);
 
@@ -548,6 +558,13 @@ int Runner::runFromString(const std::string& source) {
         int bodyIndex = headerIndex + 1;
         if (bodyIndex >= (int)statements.size()) {
             std::cerr << "[line " << statements[headerIndex].line << "] Error at 'end': " << missingBodyMessage << std::endl;
+            errorCode = 65;
+            return false;
+        }
+
+        std::string bodyStatement = trim(statements[bodyIndex].text);
+        if (isVarDeclarationStatement(bodyStatement)) {
+            std::cerr << "[line " << statements[bodyIndex].line << "] Error at 'var': Expect expression." << std::endl;
             errorCode = 65;
             return false;
         }
@@ -765,6 +782,12 @@ int Runner::runFromString(const std::string& source) {
 
         if (startsWithKeyword(statement, "while")) {
             std::cerr << "[line " << stmtLine << "] Error at 'while': Expect '(' after 'while'." << std::endl;
+            errorCode = 65;
+            return -1;
+        }
+
+        if (startsWithKeyword(statement, "if")) {
+            std::cerr << "[line " << stmtLine << "] Error at 'if': Expect '(' after 'if'." << std::endl;
             errorCode = 65;
             return -1;
         }
