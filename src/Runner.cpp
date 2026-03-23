@@ -822,6 +822,13 @@ int Runner::runFromString(const std::string& source) {
 
             if (shouldExecute) {
                 functions[declaredFunctionName] = FunctionDefinition{declaredFunctionParameters, bodyStart, bodyEnd};
+
+                std::string functionValueDeclaration = declaredFunctionName + " = \"<fn " + declaredFunctionName + ">\"";
+                int bindCode = evaluator.declareVariableFromString(functionValueDeclaration);
+                if (bindCode != 0) {
+                    errorCode = bindCode;
+                    return -1;
+                }
             }
 
             return bodyEnd + 1;
