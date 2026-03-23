@@ -8,7 +8,7 @@
 
 class Evaluator {
 public:
-    Evaluator() = default;
+    Evaluator();
     int evaluateFromString(const std::string& source, bool printResult = true);
     int evaluateConditionFromString(const std::string& source, bool& outTruthValue);
     int declareVariableFromString(const std::string& source);
@@ -20,7 +20,11 @@ private:
         std::string text;
     };
 
-    using Value = std::variant<std::monostate, NumberLiteral, double, bool, std::string>; // nil, number literal, evaluated number, bool, string
+    struct NativeFunction {
+        std::string name;
+    };
+
+    using Value = std::variant<std::monostate, NumberLiteral, double, bool, std::string, NativeFunction>; // nil, number literal, evaluated number, bool, string, native function
 
     Value parseExpression(const std::string& source, int& i);
     Value parseAssignment(const std::string& source, int& i);
@@ -31,6 +35,7 @@ private:
     Value parseAdditive(const std::string& source, int& i);
     Value parseMultiplicative(const std::string& source, int& i);
     Value parseUnary(const std::string& source, int& i);
+    Value parseCall(const std::string& source, int& i);
     Value parsePrimary(const std::string& source, int& i);
 
     bool isTruthy(const Value& value) const;

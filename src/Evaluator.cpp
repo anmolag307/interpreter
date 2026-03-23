@@ -1,9 +1,14 @@
 #include "../include/Evaluator.h"
 #include "Utils.h"
+#include <chrono>
 #include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+
+Evaluator::Evaluator() {
+    scopes_.back()["clock"] = NativeFunction{"clock"};
+}
 
 void Evaluator::beginScope() {
     scopes_.push_back(std::map<std::string, Value>{});
@@ -469,7 +474,97 @@ Evaluator::Value Evaluator::parseUnary(const std::string& source, int& i) {
         return Value(-r);
     }
 
-    return parsePrimary(source, i);
+    return parseCall(source, i);
+}
+
+Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
+    auto skipWhitespace = [&](void) {
+        while (i < (int)source.size() && isspace((unsigned char)source[i])) {
+            ++i;
+        }
+    };
+
+    Value callee = parsePrimary(source, i);
+    if (hasError_) return Value{};
+
+    while (true) {
+        skipWhitespace();
+        if (i >= (int)source.size() || source[i] != '(') {
+            break;
+        }
+
+        int parenIndex = i;
+        ++i; // consume '('
+
+        std::vector<Value> arguments;
+        skipWhitespace();
+        if (i < (int)source.size() && source[i] != ')') {
+            while (true) {
+                arguments.push_back(parseExpression(source, i));
+                if (hasError_) return Value{};
+
+                skipWhitespace();
+                if (i < (int)source.size() && source[i] == ',') {
+                    ++i;
+                    continue;
+                }
+                break;
+            }
+        }
+
+        skipWhitespace();
+        if (i >= (int)source.size() || source[i] != ')') {
+            int line = lineNumberAt(source, i);
+            if (i < (int)source.size()) {
+                std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect ')' after arguments." << std::endl;
+            } else {
+                std::cerr << "[line " << line << "] Error at 'end': Expect ')' after arguments." << std::endl;
+            }
+            hasError_ = true;
+            errorCode_ = 65;
+            return Value{};
+        }
+
+        ++i; // consume ')'
+
+        if (std::holds_alternative<NativeFunction>(callee)) {
+            const NativeFunction& native = std::get<NativeFunction>(callee);
+
+            if (native.name == "clock") {
+                if (!arguments.empty()) {
+                    if (suppressedEvalDepth_ > 0) {
+                        callee = Value(std::monostate{});
+                        continue;
+                    }
+
+                    int line = lineNumberAt(source, parenIndex);
+                    std::cerr << "[line " << line << "] Error: Expected 0 arguments but got " << arguments.size() << "." << std::endl;
+                    hasError_ = true;
+                    errorCode_ = 70;
+                    return Value{};
+                }
+
+                const auto now = std::chrono::system_clock::now();
+                const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                    now.time_since_epoch()).count();
+                callee = Value(static_cast<double>(seconds));
+                continue;
+            }
+        }
+
+        if (suppressedEvalDepth_ > 0) {
+            callee = Value(std::monostate{});
+            continue;
+        }
+
+        int line = lineNumberAt(source, parenIndex);
+        std::cerr << "[line " << line << "] Error: Can only call functions and classes." << std::endl;
+        hasError_ = true;
+        errorCode_ = 70;
+        return Value{};
+    }
+
+    return callee;
 }
 
 Evaluator::Value Evaluator::parsePrimary(const std::string& source, int& i) {
@@ -598,6 +693,7 @@ bool Evaluator::isEqual(const Value& left, const Value& right) const {
 std::string Evaluator::stringify(const Value& value) const {
     if (std::holds_alternative<std::monostate>(value)) return "nil";
     if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
+    if (std::holds_alternative<NativeFunction>(value)) return "<native fn>";
     if (std::holds_alternative<NumberLiteral>(value)) {
         return normalizeNumericText(std::get<NumberLiteral>(value).text);
     }
