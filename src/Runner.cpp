@@ -829,7 +829,13 @@ int Runner::runFromString(const std::string& source) {
             const int insertIndex = headerIndex + 1;
             statements.insert(statements.begin() + insertIndex, synthetic);
 
-            int consumedNext = consumeStatement(insertIndex, shouldExecute);
+            int consumedNext = -1;
+            try {
+                consumedNext = consumeStatement(insertIndex, shouldExecute);
+            } catch (...) {
+                statements.erase(statements.begin() + insertIndex);
+                throw;
+            }
 
             statements.erase(statements.begin() + insertIndex);
 
