@@ -3,6 +3,7 @@
 #include <cctype>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,189 @@ bool startsWithKeyword(const std::string& text, const std::string& keyword) {
     }
 
     return std::isspace((unsigned char)text[keyword.size()]);
+}
+
+bool isIdentifierStartChar(char c) {
+    return std::isalpha((unsigned char)c) || c == '_';
+}
+
+bool isIdentifierPartChar(char c) {
+    return std::isalnum((unsigned char)c) || c == '_';
+}
+
+bool parseFunctionDeclarationHeader(
+    const std::string& statement,
+    std::string& functionName,
+    std::vector<std::string>& parameters) {
+    std::string s = trim(statement);
+    if (!startsWithKeyword(s, "fun")) {
+        return false;
+    }
+
+    int i = 3;
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || !isIdentifierStartChar(s[i])) {
+        return false;
+    }
+
+    int nameStart = i;
+    while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
+        ++i;
+    }
+    functionName = s.substr(nameStart, i - nameStart);
+
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || s[i] != '(') {
+        return false;
+    }
+    ++i;
+
+    parameters.clear();
+    while (true) {
+        while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+            ++i;
+        }
+
+        if (i >= (int)s.size()) {
+            return false;
+        }
+
+        if (s[i] == ')') {
+            ++i;
+            break;
+        }
+
+        if (!isIdentifierStartChar(s[i])) {
+            return false;
+        }
+
+        int paramStart = i;
+        while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
+            ++i;
+        }
+        parameters.push_back(s.substr(paramStart, i - paramStart));
+
+        while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+            ++i;
+        }
+
+        if (i >= (int)s.size()) {
+            return false;
+        }
+
+        if (s[i] == ',') {
+            ++i;
+            continue;
+        }
+
+        if (s[i] == ')') {
+            ++i;
+            break;
+        }
+
+        return false;
+    }
+
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    return i == (int)s.size();
+}
+
+bool parseFunctionCallExpression(
+    const std::string& expression,
+    std::string& functionName,
+    std::vector<std::string>& arguments) {
+    std::string s = trim(expression);
+    if (s.empty()) {
+        return false;
+    }
+
+    int i = 0;
+    if (!isIdentifierStartChar(s[i])) {
+        return false;
+    }
+
+    int nameStart = i;
+    while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
+        ++i;
+    }
+    functionName = s.substr(nameStart, i - nameStart);
+
+    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+        ++i;
+    }
+
+    if (i >= (int)s.size() || s[i] != '(') {
+        return false;
+    }
+    ++i;
+
+    arguments.clear();
+    std::string current;
+    int depth = 0;
+    bool inString = false;
+
+    while (i < (int)s.size()) {
+        char c = s[i];
+
+        if (c == '"') {
+            inString = !inString;
+            current += c;
+            ++i;
+            continue;
+        }
+
+        if (!inString) {
+            if (c == '(') {
+                ++depth;
+                current += c;
+                ++i;
+                continue;
+            }
+
+            if (c == ')') {
+                if (depth == 0) {
+                    std::string last = trim(current);
+                    if (!last.empty()) {
+                        arguments.push_back(last);
+                    }
+                    ++i;
+                    while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
+                        ++i;
+                    }
+                    return i == (int)s.size();
+                }
+                --depth;
+                current += c;
+                ++i;
+                continue;
+            }
+
+            if (c == ',' && depth == 0) {
+                std::string arg = trim(current);
+                if (arg.empty()) {
+                    return false;
+                }
+                arguments.push_back(arg);
+                current.clear();
+                ++i;
+                continue;
+            }
+        }
+
+        current += c;
+        ++i;
+    }
+
+    return false;
 }
 
 bool isVarDeclarationStatement(const std::string& statement) {
@@ -283,6 +467,12 @@ bool allowsOpeningBraceAfterHeader(const std::string& statement) {
         return true;
     }
 
+    std::string functionName;
+    std::vector<std::string> functionParameters;
+    if (parseFunctionDeclarationHeader(statement, functionName, functionParameters)) {
+        return true;
+    }
+
     ElseStatement elseInfo = parseElseStatement(statement);
     return elseInfo.matches && !elseInfo.malformedElseIf && elseInfo.trailingStatement.empty();
 }
@@ -309,7 +499,15 @@ int Runner::runFromString(const std::string& source) {
         std::string text;
         int line;
     };
+
+    struct FunctionDefinition {
+        std::vector<std::string> parameters;
+        int bodyStartIndex = -1;
+        int bodyEndIndex = -1;
+    };
+
     std::vector<PendingStatement> statements;
+    std::map<std::string, FunctionDefinition> functions;
     std::string current;
 
     for (int i = 0; i < (int)src.size(); ++i) {
@@ -591,6 +789,44 @@ int Runner::runFromString(const std::string& source) {
             return consumeBlock(index, shouldExecute);
         }
 
+        std::string declaredFunctionName;
+        std::vector<std::string> declaredFunctionParameters;
+        if (parseFunctionDeclarationHeader(statement, declaredFunctionName, declaredFunctionParameters)) {
+            int bodyStart = index + 1;
+            if (bodyStart >= (int)statements.size() || trim(statements[bodyStart].text) != "{") {
+                std::cerr << "[line " << stmtLine << "] Error at 'fun': Expect '{' before function body." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            int depth = 0;
+            int bodyEnd = -1;
+            for (int i = bodyStart; i < (int)statements.size(); ++i) {
+                std::string token = trim(statements[i].text);
+                if (token == "{") {
+                    ++depth;
+                } else if (token == "}") {
+                    --depth;
+                    if (depth == 0) {
+                        bodyEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (bodyEnd < 0) {
+                std::cerr << "[line " << stmtLine << "] Error at 'end': Expect '}' after function body." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            if (shouldExecute) {
+                functions[declaredFunctionName] = FunctionDefinition{declaredFunctionParameters, bodyStart, bodyEnd};
+            }
+
+            return bodyEnd + 1;
+        }
+
         std::string firstCond;
         std::string firstTrailing;
         if (parseIfStatement(statement, firstCond, firstTrailing)) {
@@ -803,6 +1039,67 @@ int Runner::runFromString(const std::string& source) {
             std::cerr << "[line " << stmtLine << "] Error at 'else': Unexpected 'else'." << std::endl;
             errorCode = 65;
             return -1;
+        }
+
+        std::string calledFunctionName;
+        std::vector<std::string> callArguments;
+        if (parseFunctionCallExpression(statement, calledFunctionName, callArguments)) {
+            auto functionIt = functions.find(calledFunctionName);
+            if (functionIt != functions.end()) {
+                if (!shouldExecute) {
+                    return index + 1;
+                }
+
+                const FunctionDefinition& function = functionIt->second;
+                if (callArguments.size() != function.parameters.size()) {
+                    std::cerr << "[line " << stmtLine << "] Error: Expected "
+                              << function.parameters.size() << " arguments but got "
+                              << callArguments.size() << "." << std::endl;
+                    errorCode = 70;
+                    return -1;
+                }
+
+                evaluator.beginScope();
+                bool functionScopeOpen = true;
+
+                auto closeFunctionScope = [&]() -> bool {
+                    if (!functionScopeOpen) {
+                        return true;
+                    }
+                    functionScopeOpen = false;
+                    int scopeCode = evaluator.endScope();
+                    if (scopeCode != 0) {
+                        errorCode = scopeCode;
+                        return false;
+                    }
+                    return true;
+                };
+
+                for (int argIndex = 0; argIndex < (int)callArguments.size(); ++argIndex) {
+                    std::string declaration = function.parameters[argIndex] + " = " + callArguments[argIndex];
+                    int declareCode = evaluator.declareVariableFromString(declaration);
+                    if (declareCode != 0) {
+                        errorCode = declareCode;
+                        closeFunctionScope();
+                        return -1;
+                    }
+                }
+
+                int bodyCursor = function.bodyStartIndex + 1;
+                while (bodyCursor < function.bodyEndIndex) {
+                    bodyCursor = consumeStatement(bodyCursor, true);
+                    if (bodyCursor < 0) {
+                        closeFunctionScope();
+                        return -1;
+                    }
+                }
+
+                if (!closeFunctionScope()) {
+                    return -1;
+                }
+
+                return index + 1;
+            }
         }
 
         int code = runMaybe(statement, stmtLine, shouldExecute);

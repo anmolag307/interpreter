@@ -51,6 +51,7 @@ Note: This section is for stages 2 and beyond.
 
 # add modulo
 # remove redeclare
-# break var
+# break var into int and stuff
 # break statemnts
 # change or and and
+# allow variable declation in if and loops
