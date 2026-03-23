@@ -98,7 +98,10 @@ int Evaluator::evaluateFromString(const std::string& source, bool printResult) {
     }
 
     if (i < (int)source.size()) {
-        reportExpectExpression(source, i);
+        int line = lineNumberAt(source, i);
+        std::cerr << "[line " << line << "] Error at '" << source[i] << "': Expect ';' after value." << std::endl;
+        hasError_ = true;
+        errorCode_ = 65;
         return errorCode_;
     }
 
@@ -498,6 +501,14 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
 
         std::vector<Value> arguments;
         skipWhitespace();
+        if (i >= (int)source.size()) {
+            int line = lineNumberAt(source, i);
+            std::cerr << "[line " << line << "] Error at ';': Expect expression." << std::endl;
+            hasError_ = true;
+            errorCode_ = 65;
+            return Value{};
+        }
+
         if (i < (int)source.size() && source[i] != ')') {
             while (true) {
                 arguments.push_back(parseExpression(source, i));

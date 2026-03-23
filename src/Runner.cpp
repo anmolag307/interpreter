@@ -50,14 +50,47 @@ bool isIdentifierPartChar(char c) {
     return std::isalnum((unsigned char)c) || c == '_';
 }
 
-bool parseFunctionDeclarationHeader(
-    const std::string& statement,
-    std::string& functionName,
-    std::vector<std::string>& parameters) {
+std::string tokenAt(const std::string& s, int i) {
+    if (i >= (int)s.size()) {
+        return "end";
+    }
+
+    if (isIdentifierStartChar(s[i])) {
+        int start = i;
+        while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
+            ++i;
+        }
+        return s.substr(start, i - start);
+    }
+
+    if (std::isdigit((unsigned char)s[i])) {
+        int start = i;
+        while (i < (int)s.size() && (std::isdigit((unsigned char)s[i]) || s[i] == '.')) {
+            ++i;
+        }
+        return s.substr(start, i - start);
+    }
+
+    return std::string(1, s[i]);
+}
+
+struct FunctionHeaderParseResult {
+    bool isFunctionDeclaration = false;
+    bool ok = false;
+    std::string functionName;
+    std::vector<std::string> parameters;
+    std::string errorToken;
+    std::string errorMessage;
+};
+
+FunctionHeaderParseResult parseFunctionDeclarationHeaderDetailed(const std::string& statement) {
+    FunctionHeaderParseResult result;
     std::string s = trim(statement);
     if (!startsWithKeyword(s, "fun")) {
-        return false;
+        return result;
     }
+
+    result.isFunctionDeclaration = true;
 
     int i = 3;
     while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
@@ -65,32 +98,38 @@ bool parseFunctionDeclarationHeader(
     }
 
     if (i >= (int)s.size() || !isIdentifierStartChar(s[i])) {
-        return false;
+        result.errorToken = tokenAt(s, i);
+        result.errorMessage = "Expect function name.";
+        return result;
     }
 
     int nameStart = i;
     while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
         ++i;
     }
-    functionName = s.substr(nameStart, i - nameStart);
+    result.functionName = s.substr(nameStart, i - nameStart);
 
     while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
         ++i;
     }
 
     if (i >= (int)s.size() || s[i] != '(') {
-        return false;
+        result.errorToken = tokenAt(s, i);
+        result.errorMessage = "Expect '(' after function name.";
+        return result;
     }
     ++i;
 
-    parameters.clear();
+    result.parameters.clear();
     while (true) {
         while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
             ++i;
         }
 
         if (i >= (int)s.size()) {
-            return false;
+            result.errorToken = "end";
+            result.errorMessage = "Expect ')' after parameters.";
+            return result;
         }
 
         if (s[i] == ')') {
@@ -99,21 +138,25 @@ bool parseFunctionDeclarationHeader(
         }
 
         if (!isIdentifierStartChar(s[i])) {
-            return false;
+            result.errorToken = tokenAt(s, i);
+            result.errorMessage = "Expect parameter name.";
+            return result;
         }
 
         int paramStart = i;
         while (i < (int)s.size() && isIdentifierPartChar(s[i])) {
             ++i;
         }
-        parameters.push_back(s.substr(paramStart, i - paramStart));
+        result.parameters.push_back(s.substr(paramStart, i - paramStart));
 
         while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
             ++i;
         }
 
         if (i >= (int)s.size()) {
-            return false;
+            result.errorToken = "end";
+            result.errorMessage = "Expect ')' after parameters.";
+            return result;
         }
 
         if (s[i] == ',') {
@@ -126,14 +169,37 @@ bool parseFunctionDeclarationHeader(
             break;
         }
 
-        return false;
+        result.errorToken = tokenAt(s, i);
+        result.errorMessage = "Expect ')' after parameters.";
+        return result;
     }
 
     while (i < (int)s.size() && std::isspace((unsigned char)s[i])) {
         ++i;
     }
 
-    return i == (int)s.size();
+    if (i != (int)s.size()) {
+        result.errorToken = tokenAt(s, i);
+        result.errorMessage = "Expect '{' before function body.";
+        return result;
+    }
+
+    result.ok = true;
+    return result;
+}
+
+bool parseFunctionDeclarationHeader(
+    const std::string& statement,
+    std::string& functionName,
+    std::vector<std::string>& parameters) {
+    FunctionHeaderParseResult detailed = parseFunctionDeclarationHeaderDetailed(statement);
+    if (!detailed.isFunctionDeclaration || !detailed.ok) {
+        return false;
+    }
+
+    functionName = detailed.functionName;
+    parameters = detailed.parameters;
+    return true;
 }
 
 bool parseFunctionCallExpression(
@@ -545,6 +611,13 @@ int Runner::runFromString(const std::string& source) {
         if (!inString && c == '{') {
             std::string beforeBrace = trim(current);
             if (!beforeBrace.empty()) {
+                FunctionHeaderParseResult funHeader = parseFunctionDeclarationHeaderDetailed(beforeBrace);
+                if (funHeader.isFunctionDeclaration && !funHeader.ok) {
+                    std::cerr << "[line " << line << "] Error at '" << funHeader.errorToken
+                              << "': " << funHeader.errorMessage << std::endl;
+                    return 65;
+                }
+
                 if (!allowsOpeningBraceAfterHeader(beforeBrace)) {
                     std::cerr << "[line " << line << "] Error at '{': Expect ';' after statement." << std::endl;
                     return 65;
@@ -789,12 +862,20 @@ int Runner::runFromString(const std::string& source) {
             return consumeBlock(index, shouldExecute);
         }
 
+        FunctionHeaderParseResult functionHeader = parseFunctionDeclarationHeaderDetailed(statement);
+        if (functionHeader.isFunctionDeclaration && !functionHeader.ok) {
+            std::cerr << "[line " << stmtLine << "] Error at '" << functionHeader.errorToken
+                      << "': " << functionHeader.errorMessage << std::endl;
+            errorCode = 65;
+            return -1;
+        }
+
         std::string declaredFunctionName;
         std::vector<std::string> declaredFunctionParameters;
         if (parseFunctionDeclarationHeader(statement, declaredFunctionName, declaredFunctionParameters)) {
             int bodyStart = index + 1;
             if (bodyStart >= (int)statements.size() || trim(statements[bodyStart].text) != "{") {
-                std::cerr << "[line " << stmtLine << "] Error at 'fun': Expect '{' before function body." << std::endl;
+                std::cerr << "[line " << stmtLine << "] Error at 'end': Expect '{' before function body." << std::endl;
                 errorCode = 65;
                 return -1;
             }
