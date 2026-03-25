@@ -1,53 +1,57 @@
-[![progress-banner](https://backend.codecrafters.io/progress/interpreter/6f44c9b9-5c8f-4a23-aa42-503914fd5797)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Lox Interpreter
 
-This is a starting point for C++ solutions to the
-["Build your own Interpreter" Challenge](https://app.codecrafters.io/courses/interpreter/overview).
+A C++ implementation of the Lox programming language interpreter based on [Crafting Interpreters](https://craftinginterpreters.com/) by Robert Nystrom.
 
-This challenge follows the book
-[Crafting Interpreters](https://craftinginterpreters.com/) by Robert Nystrom.
+## Overview
 
-In this challenge you'll build an interpreter for
-[Lox](https://craftinginterpreters.com/the-lox-language.html), a simple
-scripting language. Along the way, you'll learn about tokenization, ASTs,
-tree-walk interpreters and more.
+This is a tree-walk interpreter for Lox, a simple dynamically-typed scripting language. The interpreter supports:
 
-Before starting this challenge, make sure you've read the "Welcome" part of the
-book that contains these chapters:
+- Variables and scoping
+- Functions and recursion
+- Control flow (if/else, while, for loops)
+- Basic operators and expressions
+- Print statements
+- Comments
 
-- [Introduction](https://craftinginterpreters.com/introduction.html) (chapter 1)
-- [A Map of the Territory](https://craftinginterpreters.com/a-map-of-the-territory.html)
-  (chapter 2)
-- [The Lox Language](https://craftinginterpreters.com/the-lox-language.html)
-  (chapter 3)
+## Building
 
-These chapters don't involve writing code, so they won't be covered in this
-challenge. This challenge will start from chapter 4,
-[Scanning](https://craftinginterpreters.com/scanning.html).
+Prerequisites:
+- CMake 3.10+
+- C++17 compiler
+- vcpkg (for dependency management)
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your program is in `src/main.cpp`. Study and uncomment the
-relevant code, and push your changes to pass the first stage:
-
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+Build instructions:
+```bash
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
+cmake --build ./build
 ```
 
-Time to move on to the next stage!
+## Usage
 
-# Stage 2 & beyond
+```bash
+./build/interpreter run <filename>
+./build/interpreter parse <filename>
+./build/interpreter evaluate <filename>
+./build/interpreter tokenize <filename>
+```
 
-Note: This section is for stages 2 and beyond.
+## Project Structure
 
-1. Ensure you have `cmake` installed locally
-2. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.cpp`.
-3. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+- `src/` - Source implementation files
+- `include/` - Header files
+- `CMakeLists.txt` - Build configuration
+
+## Features Implemented
+
+- ✅ Tokenization and scanning
+- ✅ Parsing and AST generation
+- ✅ Variable declaration and assignment
+- ✅ Function definitions and calls
+- ✅ Scope management
+- ✅ Control flow statements
+- ✅ Error handling with exit code 70 for runtime errors
+
+## Future Improvements
 
 # add modulo
 # remove redeclare
