@@ -695,14 +695,15 @@ int Runner::runFromString(const std::string& source) {
     };
 
     int functionExecutionDepth = 0;
-    std::function<int(const std::string&, const std::vector<Evaluator::Value>&, Evaluator::Value&)> invokeUserFunction;
+    std::function<int(const std::string&, const std::vector<Evaluator::Value>&, int, Evaluator::Value&)> invokeUserFunction;
     evaluator.setUserFunctionHandler([&](const std::string& name,
                                         const std::vector<Evaluator::Value>& args,
+                                        int callLine,
                                         Evaluator::Value& outValue) -> int {
         if (!invokeUserFunction) {
             return 70;
         }
-        return invokeUserFunction(name, args, outValue);
+        return invokeUserFunction(name, args, callLine, outValue);
     });
 
     auto runRegularStatement = [&](const std::string& statement, int stmtLine) -> int {
@@ -1178,6 +1179,7 @@ int Runner::runFromString(const std::string& source) {
 
     invokeUserFunction = [&](const std::string& functionName,
                              const std::vector<Evaluator::Value>& args,
+                             int callLine,
                              Evaluator::Value& outValue) -> int {
         auto functionIt = functions.find(functionName);
         if (functionIt == functions.end()) {
@@ -1187,8 +1189,9 @@ int Runner::runFromString(const std::string& source) {
 
         const FunctionDefinition& function = functionIt->second;
         if (args.size() != function.parameters.size()) {
-            std::cerr << "Error: Expected " << function.parameters.size() << " arguments but got "
+            std::cerr << "Expected " << function.parameters.size() << " arguments but got "
                       << args.size() << "." << std::endl;
+            std::cerr << "[line " << callLine << "]" << std::endl;
             return 70;
         }
 

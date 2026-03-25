@@ -18,7 +18,7 @@ public:
     };
 
     using Value = std::variant<std::monostate, NumberLiteral, double, bool, std::string, NativeFunction>; // nil, number literal, evaluated number, bool, string, native function
-    using UserFunctionHandler = std::function<int(const std::string&, const std::vector<Value>&, Value&)>;
+    using UserFunctionHandler = std::function<int(const std::string&, const std::vector<Value>&, int, Value&)>;
 
     Evaluator();
     int evaluateFromString(const std::string& source, bool printResult = true);

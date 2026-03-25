@@ -586,7 +586,8 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
                     }
 
                     int line = lineNumberAt(source, parenIndex);
-                    std::cerr << "[line " << line << "] Error: Expected 0 arguments but got " << arguments.size() << "." << std::endl;
+                    std::cerr << "Expected 0 arguments but got " << arguments.size() << "." << std::endl;
+                    std::cerr << "[line " << line << "]" << std::endl;
                     hasError_ = true;
                     errorCode_ = 70;
                     return Value{};
@@ -610,7 +611,8 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
 
                 if (!userFunctionHandler_) {
                     int line = lineNumberAt(source, parenIndex);
-                    std::cerr << "[line " << line << "] Error: Can only call functions and classes." << std::endl;
+                    std::cerr << "Can only call functions and classes." << std::endl;
+                    std::cerr << "[line " << line << "]" << std::endl;
                     hasError_ = true;
                     errorCode_ = 70;
                     return Value{};
@@ -618,7 +620,8 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
 
                 std::string functionName = valueText.substr(4, valueText.size() - 5);
                 Value returnValue = std::monostate{};
-                int callCode = userFunctionHandler_(functionName, arguments, returnValue);
+                int line = lineNumberAt(source, parenIndex);
+                int callCode = userFunctionHandler_(functionName, arguments, line, returnValue);
                 if (callCode != 0) {
                     hasError_ = true;
                     errorCode_ = callCode;
@@ -636,7 +639,8 @@ Evaluator::Value Evaluator::parseCall(const std::string& source, int& i) {
         }
 
         int line = lineNumberAt(source, parenIndex);
-        std::cerr << "[line " << line << "] Error: Can only call functions and classes." << std::endl;
+        std::cerr << "Can only call functions and classes." << std::endl;
+        std::cerr << "[line " << line << "]" << std::endl;
         hasError_ = true;
         errorCode_ = 70;
         return Value{};
