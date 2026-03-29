@@ -60,11 +60,8 @@ std::vector<Token> Scanner::scanTokens() {
             else if(identifier=="return") {
                 std::cout << "RETURN return null" <<std::endl;
             }
-            else if(identifier=="and") {
-                std::cout << "AND and null" <<std::endl;
-            }
-            else if(identifier=="or") {
-                std::cout << "OR or null" <<std::endl;
+            else if(identifier=="break") {
+                std::cout << "BREAK break null" <<std::endl;
             }
             else if(identifier=="super") {
                 std::cout << "SUPER super null" <<std::endl;
@@ -132,6 +129,15 @@ std::vector<Token> Scanner::scanTokens() {
             }
             else if(cur=='*') {
                 std::cout << "STAR * null" <<std::endl;
+            }
+            else if(cur=='%') {
+                std::cout << "PERCENT % null" <<std::endl;
+            }
+            else if(cur=='&') {
+                std::cout << "AMPERSAND & null" <<std::endl;
+            }
+            else if(cur=='|') {
+                std::cout << "PIPE | null" <<std::endl;
             }
             else if(cur=='/') {
                 if(i+1<(int)src.size() && src[i+1]=='/'){

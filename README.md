@@ -51,11 +51,5 @@ cmake --build ./build
 - ✅ Control flow statements
 - ✅ Error handling with exit code 70 for runtime errors
 
-## Future Improvements
-
-# add modulo
-# remove redeclare
 # break var into int and stuff
-# break statemnts
-# change or and and
 # allow variable declation in if and loops

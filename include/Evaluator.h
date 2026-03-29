@@ -53,6 +53,7 @@ private:
     bool isIdentifierStart(char c) const;
     bool isIdentifierPart(char c) const;
     bool matchesKeyword(const std::string& source, int index, const std::string& keyword) const;
+    bool isReservedKeyword(const std::string& name) const;
 
     bool hasError_ = false;
     int errorCode_ = 0;

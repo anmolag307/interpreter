@@ -2,6 +2,7 @@
 #include "Utils.h"
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -41,10 +42,29 @@ int Evaluator::declareVariableFromString(const std::string& source) {
         return 65;
     }
 
+    int nameStart = i;
     std::string name;
     while (i < (int)source.size() && isIdentifierPart(source[i])) {
         name += source[i];
         ++i;
+    }
+
+    if (isReservedKeyword(name)) {
+        int line = lineNumberAt(source, nameStart);
+        std::cerr << "[line " << line << "] Error at '" << name
+                  << "': Variable name cannot be a keyword." << std::endl;
+        return 65;
+    }
+
+    // Reject duplicate global declarations instead of silently overwriting.
+    if (scopes_.size() == 1) {
+        auto existing = scopes_.front().find(name);
+        if (existing != scopes_.front().end()) {
+            int line = lineNumberAt(source, nameStart);
+            std::cerr << "[line " << line << "] Error: Variable '" << name
+                      << "' already declared in global scope." << std::endl;
+            return 70;
+        }
     }
 
     while (i < (int)source.size() && isspace((unsigned char)source[i])) {
@@ -244,11 +264,11 @@ Evaluator::Value Evaluator::parseOr(const std::string& source, int& i) {
 
     while (true) {
         skipWhitespace();
-        if (!matchesKeyword(source, i, "or")) {
+        if (i >= (int)source.size() || source[i] != '|') {
             break;
         }
 
-        i += 2;
+        ++i;
         if (isTruthy(left)) {
             ++suppressedEvalDepth_;
             Value ignored = parseAnd(source, i);
@@ -277,11 +297,11 @@ Evaluator::Value Evaluator::parseAnd(const std::string& source, int& i) {
 
     while (true) {
         skipWhitespace();
-        if (!matchesKeyword(source, i, "and")) {
+        if (i >= (int)source.size() || source[i] != '&') {
             break;
         }
 
-        i += 3;
+        ++i;
         if (!isTruthy(left)) {
             ++suppressedEvalDepth_;
             Value ignored = parseEquality(source, i);
@@ -453,7 +473,7 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
         skipWhitespace();
         if (i >= (int)source.size()) break;
         char op = source[i];
-        if (op != '*' && op != '/') break;
+        if (op != '*' && op != '/' && op != '%') break;
 
         ++i;
         Value right = parseUnary(source, i);
@@ -475,8 +495,10 @@ Evaluator::Value Evaluator::parseMultiplicative(const std::string& source, int& 
 
         if (op == '*') {
             left = Value(l * r);
-        } else {
+        } else if (op == '/') {
             left = Value(l / r);
+        } else {
+            left = Value(std::fmod(l, r));
         }
     }
 
@@ -863,4 +885,19 @@ bool Evaluator::matchesKeyword(const std::string& source, int index, const std::
     }
 
     return true;
+}
+
+bool Evaluator::isReservedKeyword(const std::string& name) const {
+    static const std::string keywords[] = {
+        "var", "fun", "if", "else", "for", "while", "return", "break",
+        "true", "false", "nil", "class", "super", "this", "print",
+        "and", "or"
+    };
+
+    for (const std::string& keyword : keywords) {
+        if (name == keyword) {
+            return true;
+        }
+    }
+    return false;
 }

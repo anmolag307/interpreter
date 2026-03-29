@@ -9,7 +9,7 @@ enum class TokenType {
     // literals
     IDENTIFIER, STRING, NUMBER,
     // keywords
-    VAR, FUN, IF, ELSE, FOR, WHILE, RETURN,
+    VAR, FUN, IF, ELSE, FOR, WHILE, RETURN, BREAK,
     // special
     END_OF_FILE
 };

@@ -39,7 +39,8 @@ bool startsWithKeyword(const std::string& text, const std::string& keyword) {
         return true;
     }
 
-    return std::isspace((unsigned char)text[keyword.size()]);
+    unsigned char next = (unsigned char)text[keyword.size()];
+    return !(std::isalnum(next) || next == '_');
 }
 
 bool isIdentifierStartChar(char c) {
@@ -694,7 +695,16 @@ int Runner::runFromString(const std::string& source) {
         Evaluator::Value value;
     };
 
+    struct BreakSignal {};
+
+    struct LoopDepthGuard {
+        int& depth;
+        explicit LoopDepthGuard(int& d) : depth(d) { ++depth; }
+        ~LoopDepthGuard() { --depth; }
+    };
+
     int functionExecutionDepth = 0;
+    int loopExecutionDepth = 0;
     std::function<int(const std::string&, const std::vector<Evaluator::Value>&, int, Evaluator::Value&)> invokeUserFunction;
     evaluator.setUserFunctionHandler([&](const std::string& name,
                                         const std::vector<Evaluator::Value>& args,
@@ -955,6 +965,28 @@ int Runner::runFromString(const std::string& source) {
             throw ReturnSignal{returnValue};
         }
 
+        if (startsWithKeyword(statement, "break")) {
+            std::string trailing = trim(statement.substr(5));
+            if (!trailing.empty()) {
+                std::cerr << "[line " << stmtLine << "] Error at '" << tokenAt(trailing, 0)
+                          << "': Expect ';' after break." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            if (!shouldExecute) {
+                return index + 1;
+            }
+
+            if (loopExecutionDepth <= 0) {
+                std::cerr << "[line " << stmtLine << "] Error at 'break': Can't break from top-level code." << std::endl;
+                errorCode = 65;
+                return -1;
+            }
+
+            throw BreakSignal{};
+        }
+
         std::string firstCond;
         std::string firstTrailing;
         if (parseIfStatement(statement, firstCond, firstTrailing)) {
@@ -1046,6 +1078,8 @@ int Runner::runFromString(const std::string& source) {
                 return nextIndex;
             }
 
+            LoopDepthGuard loopGuard(loopExecutionDepth);
+
             while (true) {
                 bool conditionValue = false;
                 int code = evaluator.evaluateConditionFromString(whileCondition, conditionValue);
@@ -1062,8 +1096,16 @@ int Runner::runFromString(const std::string& source) {
                     return nextIndex;
                 }
 
-                if (!consumeBody(index, whileTrailing, true, nextIndex, "Expect statement after while condition.")) {
-                    return -1;
+                try {
+                    if (!consumeBody(index, whileTrailing, true, nextIndex, "Expect statement after while condition.")) {
+                        return -1;
+                    }
+                } catch (const BreakSignal&) {
+                    int breakNext = -1;
+                    if (!consumeBody(index, whileTrailing, false, breakNext, "Expect statement after while condition.")) {
+                        return -1;
+                    }
+                    return breakNext;
                 }
             }
         }
@@ -1080,6 +1122,8 @@ int Runner::runFromString(const std::string& source) {
                 }
                 return nextIndex;
             }
+
+            LoopDepthGuard loopGuard(loopExecutionDepth);
 
             evaluator.beginScope();
             bool forScopeActive = true;
@@ -1128,9 +1172,21 @@ int Runner::runFromString(const std::string& source) {
                     return nextIndex;
                 }
 
-                if (!consumeBody(index, forTrailing, true, nextIndex, "Expect statement after for clauses.")) {
-                    closeForScope();
-                    return -1;
+                try {
+                    if (!consumeBody(index, forTrailing, true, nextIndex, "Expect statement after for clauses.")) {
+                        closeForScope();
+                        return -1;
+                    }
+                } catch (const BreakSignal&) {
+                    int breakNext = -1;
+                    if (!consumeBody(index, forTrailing, false, breakNext, "Expect statement after for clauses.")) {
+                        closeForScope();
+                        return -1;
+                    }
+                    if (!closeForScope()) {
+                        return -1;
+                    }
+                    return breakNext;
                 }
 
                 if (!forIncrement.empty()) {
@@ -1197,6 +1253,8 @@ int Runner::runFromString(const std::string& source) {
 
         evaluator.beginScope();
         ++functionExecutionDepth;
+        int savedLoopExecutionDepth = loopExecutionDepth;
+        loopExecutionDepth = 0;
 
         for (int argIndex = 0; argIndex < (int)args.size(); ++argIndex) {
             evaluator.defineVariable(function.parameters[argIndex], args[argIndex]);
@@ -1210,6 +1268,7 @@ int Runner::runFromString(const std::string& source) {
                 if (bodyCursor < 0) {
                     int closeCode = evaluator.endScope();
                     --functionExecutionDepth;
+                    loopExecutionDepth = savedLoopExecutionDepth;
                     if (closeCode != 0) {
                         return closeCode;
                     }
@@ -1222,6 +1281,7 @@ int Runner::runFromString(const std::string& source) {
 
         int closeCode = evaluator.endScope();
         --functionExecutionDepth;
+        loopExecutionDepth = savedLoopExecutionDepth;
         if (closeCode != 0) {
             return closeCode;
         }
