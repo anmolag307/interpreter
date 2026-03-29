@@ -27,8 +27,17 @@ std::vector<Token> Scanner::scanTokens() {
                 identifier += src[i+1];
                 i++;
             }
-            if(identifier=="var") {
-                std::cout << "VAR var null" <<std::endl;
+            if(identifier=="auto") {
+                std::cout << "AUTO auto null" <<std::endl;
+            }
+            else if(identifier=="num") {
+                std::cout << "NUM num null" <<std::endl;
+            }
+            else if(identifier=="string") {
+                std::cout << "STR string null" <<std::endl;
+            }
+            else if(identifier=="bool") {
+                std::cout << "BOOL bool null" <<std::endl;
             }
             else if(identifier=="print") {
                 std::cout << "PRINT print null" <<std::endl;

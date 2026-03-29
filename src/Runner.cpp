@@ -292,8 +292,51 @@ bool parseFunctionCallExpression(
     return false;
 }
 
-bool isVarDeclarationStatement(const std::string& statement) {
-    return startsWithKeyword(statement, "var");
+struct DeclarationStatement {
+    bool matches = false;
+    std::string keyword;
+    std::string declaration;
+    Evaluator::VariableType type = Evaluator::VariableType::ANY;
+};
+
+DeclarationStatement parseDeclarationStatement(const std::string& statement) {
+    DeclarationStatement result;
+    std::string s = trim(statement);
+
+    if (startsWithKeyword(s, "auto")) {
+        result.matches = true;
+        result.keyword = "auto";
+        result.declaration = trim(s.substr(4));
+        result.type = Evaluator::VariableType::ANY;
+        return result;
+    }
+    if (startsWithKeyword(s, "num")) {
+        result.matches = true;
+        result.keyword = "num";
+        result.declaration = trim(s.substr(3));
+        result.type = Evaluator::VariableType::NUM;
+        return result;
+    }
+    if (startsWithKeyword(s, "string")) {
+        result.matches = true;
+        result.keyword = "string";
+        result.declaration = trim(s.substr(6));
+        result.type = Evaluator::VariableType::STRING;
+        return result;
+    }
+    if (startsWithKeyword(s, "bool")) {
+        result.matches = true;
+        result.keyword = "bool";
+        result.declaration = trim(s.substr(4));
+        result.type = Evaluator::VariableType::BOOL;
+        return result;
+    }
+
+    return result;
+}
+
+bool isDeclarationStatement(const std::string& statement) {
+    return parseDeclarationStatement(statement).matches;
 }
 
 bool parseIfStatement(const std::string& statement, std::string& condition, std::string& trailingStatement) {
@@ -721,18 +764,15 @@ int Runner::runFromString(const std::string& source) {
             statement.rfind("print", 0) == 0 &&
             (statement.size() == 5 || std::isspace((unsigned char)statement[5]));
 
-        bool isVarDeclaration =
-            statement.rfind("var", 0) == 0 &&
-            (statement.size() == 3 || std::isspace((unsigned char)statement[3]));
+        DeclarationStatement declaration = parseDeclarationStatement(statement);
 
-        if (isVarDeclaration) {
-            std::string declaration = trim(statement.substr(3));
-            if (declaration.empty()) {
+        if (declaration.matches) {
+            if (declaration.declaration.empty()) {
                 std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
                 return 65;
             }
 
-            int code = evaluator.declareVariableFromString(declaration);
+            int code = evaluator.declareVariableFromString(declaration.declaration, declaration.type);
             if (code != 0) {
                 return code;
             }
@@ -767,17 +807,13 @@ int Runner::runFromString(const std::string& source) {
             return 0;
         }
 
-        bool isVarDeclaration =
-            init.rfind("var", 0) == 0 &&
-            (init.size() == 3 || std::isspace((unsigned char)init[3]));
-
-        if (isVarDeclaration) {
-            std::string declaration = trim(init.substr(3));
-            if (declaration.empty()) {
+        DeclarationStatement declaration = parseDeclarationStatement(init);
+        if (declaration.matches) {
+            if (declaration.declaration.empty()) {
                 std::cerr << "[line " << stmtLine << "] Error at ';': Expect variable name." << std::endl;
                 return 65;
             }
-            return evaluator.declareVariableFromString(declaration);
+            return evaluator.declareVariableFromString(declaration.declaration, declaration.type);
         }
 
         return evaluator.evaluateFromString(init, false);
@@ -822,7 +858,8 @@ int Runner::runFromString(const std::string& source) {
                            const std::string& inlineBody,
                            bool shouldExecute,
                            int& outNextIndex,
-                           const std::string& missingBodyMessage) -> bool {
+                           const std::string& missingBodyMessage,
+                           bool allowVarDeclarationSingleStatement) -> bool {
         if (!inlineBody.empty()) {
             PendingStatement synthetic{trim(inlineBody), statements[headerIndex].line};
             if (synthetic.text.empty()) {
@@ -831,8 +868,10 @@ int Runner::runFromString(const std::string& source) {
                 return false;
             }
 
-            if (isVarDeclarationStatement(synthetic.text)) {
-                std::cerr << "[line " << statements[headerIndex].line << "] Error at 'var': Expect expression." << std::endl;
+            DeclarationStatement syntheticDecl = parseDeclarationStatement(synthetic.text);
+            if (!allowVarDeclarationSingleStatement && syntheticDecl.matches) {
+                std::cerr << "[line " << statements[headerIndex].line << "] Error at '"
+                          << syntheticDecl.keyword << "': Expect expression." << std::endl;
                 errorCode = 65;
                 return false;
             }
@@ -866,8 +905,10 @@ int Runner::runFromString(const std::string& source) {
         }
 
         std::string bodyStatement = trim(statements[bodyIndex].text);
-        if (isVarDeclarationStatement(bodyStatement)) {
-            std::cerr << "[line " << statements[bodyIndex].line << "] Error at 'var': Expect expression." << std::endl;
+        DeclarationStatement bodyDecl = parseDeclarationStatement(bodyStatement);
+        if (!allowVarDeclarationSingleStatement && bodyDecl.matches) {
+            std::cerr << "[line " << statements[bodyIndex].line << "] Error at '"
+                      << bodyDecl.keyword << "': Expect expression." << std::endl;
             errorCode = 65;
             return false;
         }
@@ -1025,7 +1066,8 @@ int Runner::runFromString(const std::string& source) {
                         clauseTrailing,
                         executeThisBody,
                         nextIndex,
-                        clauseIsConditional ? "Expect statement after if condition." : "Expect statement after else.")) {
+                        clauseIsConditional ? "Expect statement after if condition." : "Expect statement after else.",
+                        false)) {
                     return -1;
                 }
 
@@ -1072,7 +1114,7 @@ int Runner::runFromString(const std::string& source) {
 
             if (!shouldExecute) {
                 int nextIndex = -1;
-                if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.")) {
+                if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.", true)) {
                     return -1;
                 }
                 return nextIndex;
@@ -1090,19 +1132,19 @@ int Runner::runFromString(const std::string& source) {
 
                 int nextIndex = -1;
                 if (!conditionValue) {
-                    if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.")) {
+                    if (!consumeBody(index, whileTrailing, false, nextIndex, "Expect statement after while condition.", true)) {
                         return -1;
                     }
                     return nextIndex;
                 }
 
                 try {
-                    if (!consumeBody(index, whileTrailing, true, nextIndex, "Expect statement after while condition.")) {
+                    if (!consumeBody(index, whileTrailing, true, nextIndex, "Expect statement after while condition.", true)) {
                         return -1;
                     }
                 } catch (const BreakSignal&) {
                     int breakNext = -1;
-                    if (!consumeBody(index, whileTrailing, false, breakNext, "Expect statement after while condition.")) {
+                    if (!consumeBody(index, whileTrailing, false, breakNext, "Expect statement after while condition.", true)) {
                         return -1;
                     }
                     return breakNext;
@@ -1117,7 +1159,7 @@ int Runner::runFromString(const std::string& source) {
         if (parseForStatement(statement, forInitializer, forCondition, forIncrement, forTrailing)) {
             if (!shouldExecute) {
                 int nextIndex = -1;
-                if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.")) {
+                if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.", true)) {
                     return -1;
                 }
                 return nextIndex;
@@ -1162,7 +1204,7 @@ int Runner::runFromString(const std::string& source) {
 
                 int nextIndex = -1;
                 if (!conditionValue) {
-                    if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.")) {
+                    if (!consumeBody(index, forTrailing, false, nextIndex, "Expect statement after for clauses.", true)) {
                         closeForScope();
                         return -1;
                     }
@@ -1173,13 +1215,13 @@ int Runner::runFromString(const std::string& source) {
                 }
 
                 try {
-                    if (!consumeBody(index, forTrailing, true, nextIndex, "Expect statement after for clauses.")) {
+                    if (!consumeBody(index, forTrailing, true, nextIndex, "Expect statement after for clauses.", true)) {
                         closeForScope();
                         return -1;
                     }
                 } catch (const BreakSignal&) {
                     int breakNext = -1;
-                    if (!consumeBody(index, forTrailing, false, breakNext, "Expect statement after for clauses.")) {
+                    if (!consumeBody(index, forTrailing, false, breakNext, "Expect statement after for clauses.", true)) {
                         closeForScope();
                         return -1;
                     }

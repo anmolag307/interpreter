@@ -13,6 +13,7 @@ Evaluator::Evaluator() {
 
 void Evaluator::beginScope() {
     scopes_.push_back(std::map<std::string, Value>{});
+    scopeTypes_.push_back(std::map<std::string, VariableType>{});
 }
 
 int Evaluator::endScope() {
@@ -20,10 +21,11 @@ int Evaluator::endScope() {
         return 65;
     }
     scopes_.pop_back();
+    scopeTypes_.pop_back();
     return 0;
 }
 
-int Evaluator::declareVariableFromString(const std::string& source) {
+int Evaluator::declareVariableFromString(const std::string& source, VariableType declaredType) {
     hasError_ = false;
     errorCode_ = 0;
 
@@ -95,12 +97,31 @@ int Evaluator::declareVariableFromString(const std::string& source) {
         }
     }
 
+    VariableType resolvedType = declaredType;
+    if (declaredType == VariableType::ANY) {
+        resolvedType = inferVariableType(value);
+        if (resolvedType == VariableType::ANY) {
+            int line = lineNumberAt(source, nameStart);
+            std::cerr << "[line " << line << "] Error: Variable type must be num, string, or bool." << std::endl;
+            return 70;
+        }
+    }
+
+    if (!isValueCompatibleWithType(value, resolvedType)) {
+        int line = lineNumberAt(source, nameStart);
+        std::cerr << "[line " << line << "] Error: Expected " << variableTypeName(resolvedType)
+                  << " value for variable '" << name << "'." << std::endl;
+        return 70;
+    }
+
     scopes_.back()[name] = value;
+    scopeTypes_.back()[name] = resolvedType;
     return 0;
 }
 
 void Evaluator::defineVariable(const std::string& name, const Value& value) {
     scopes_.back()[name] = value;
+    scopeTypes_.back().erase(name);
 }
 
 void Evaluator::setUserFunctionHandler(UserFunctionHandler handler) {
@@ -232,9 +253,20 @@ Evaluator::Value Evaluator::parseAssignment(const std::string& source, int& i) {
                 return value;
             }
 
-            for (auto scopeIt = scopes_.rbegin(); scopeIt != scopes_.rend(); ++scopeIt) {
-                auto it = scopeIt->find(name);
-                if (it != scopeIt->end()) {
+            for (int scopeIndex = (int)scopes_.size() - 1; scopeIndex >= 0; --scopeIndex) {
+                auto it = scopes_[scopeIndex].find(name);
+                if (it != scopes_[scopeIndex].end()) {
+                    auto typeIt = scopeTypes_[scopeIndex].find(name);
+                    if (typeIt != scopeTypes_[scopeIndex].end() &&
+                        !isValueCompatibleWithType(value, typeIt->second)) {
+                        int line = lineNumberAt(source, nameStart);
+                        std::cerr << "[line " << line << "] Error: Expected "
+                                  << variableTypeName(typeIt->second)
+                                  << " value for variable '" << name << "'." << std::endl;
+                        hasError_ = true;
+                        errorCode_ = 70;
+                        return Value{};
+                    }
                     it->second = value;
                     return value;
                 }
@@ -889,7 +921,7 @@ bool Evaluator::matchesKeyword(const std::string& source, int index, const std::
 
 bool Evaluator::isReservedKeyword(const std::string& name) const {
     static const std::string keywords[] = {
-        "var", "fun", "if", "else", "for", "while", "return", "break",
+        "auto", "fun", "if", "else", "for", "while", "return", "break",
         "true", "false", "nil", "class", "super", "this", "print",
         "and", "or"
     };
@@ -900,4 +932,37 @@ bool Evaluator::isReservedKeyword(const std::string& name) const {
         }
     }
     return false;
+}
+
+Evaluator::VariableType Evaluator::inferVariableType(const Value& value) const {
+    if (std::holds_alternative<NumberLiteral>(value) || std::holds_alternative<double>(value)) {
+        return VariableType::NUM;
+    }
+    if (std::holds_alternative<std::string>(value)) {
+        return VariableType::STRING;
+    }
+    if (std::holds_alternative<bool>(value)) {
+        return VariableType::BOOL;
+    }
+    return VariableType::ANY;
+}
+
+bool Evaluator::isValueCompatibleWithType(const Value& value, VariableType type) const {
+    if (type == VariableType::NUM) {
+        return std::holds_alternative<NumberLiteral>(value) || std::holds_alternative<double>(value);
+    }
+    if (type == VariableType::STRING) {
+        return std::holds_alternative<std::string>(value);
+    }
+    if (type == VariableType::BOOL) {
+        return std::holds_alternative<bool>(value);
+    }
+    return true;
+}
+
+std::string Evaluator::variableTypeName(VariableType type) const {
+    if (type == VariableType::NUM) return "num";
+    if (type == VariableType::STRING) return "string";
+    if (type == VariableType::BOOL) return "bool";
+    return "value";
 }

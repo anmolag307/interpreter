@@ -1,0 +1,4 @@
+for(auto i=0; i<5; i=i+1){
+    num a=0;
+    print a;
+}

@@ -9,6 +9,13 @@
 
 class Evaluator {
 public:
+    enum class VariableType {
+        ANY,
+        NUM,
+        STRING,
+        BOOL
+    };
+
     struct NumberLiteral {
         std::string text;
     };
@@ -24,7 +31,7 @@ public:
     int evaluateFromString(const std::string& source, bool printResult = true);
     int evaluateValueFromString(const std::string& source, Value& outValue);
     int evaluateConditionFromString(const std::string& source, bool& outTruthValue);
-    int declareVariableFromString(const std::string& source);
+    int declareVariableFromString(const std::string& source, VariableType declaredType = VariableType::ANY);
     void defineVariable(const std::string& name, const Value& value);
     void setUserFunctionHandler(UserFunctionHandler handler);
     void beginScope();
@@ -54,12 +61,16 @@ private:
     bool isIdentifierPart(char c) const;
     bool matchesKeyword(const std::string& source, int index, const std::string& keyword) const;
     bool isReservedKeyword(const std::string& name) const;
+    VariableType inferVariableType(const Value& value) const;
+    bool isValueCompatibleWithType(const Value& value, VariableType type) const;
+    std::string variableTypeName(VariableType type) const;
 
     bool hasError_ = false;
     int errorCode_ = 0;
     int suppressedEvalDepth_ = 0;
     UserFunctionHandler userFunctionHandler_;
     std::vector<std::map<std::string, Value>> scopes_ = {std::map<std::string, Value>{}};
+    std::vector<std::map<std::string, VariableType>> scopeTypes_ = {std::map<std::string, VariableType>{}};
 };
 
 #endif // CODECRAFTERS_EVALUATOR_H

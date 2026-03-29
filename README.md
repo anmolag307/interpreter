@@ -52,4 +52,3 @@ cmake --build ./build
 - ✅ Error handling with exit code 70 for runtime errors
 
 # break var into int and stuff
-# allow variable declation in if and loops
