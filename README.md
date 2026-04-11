@@ -49,6 +49,4 @@ cmake --build ./build
 - ✅ Function definitions and calls
 - ✅ Scope management
 - ✅ Control flow statements
-- ✅ Error handling with exit code 70 for runtime errors
-
-# break var into int and stuff
+- ✅ Error handling with exit code 70 for runtime error
